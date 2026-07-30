@@ -39,3 +39,6 @@ npm-debug.log
 *.db
 *.db-*
 
+# ElixirLS writes a build cache here.
+/.elixir_ls/
+
