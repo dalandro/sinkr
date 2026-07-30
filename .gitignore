@@ -42,3 +42,6 @@ npm-debug.log
 # ElixirLS writes a build cache here.
 /.elixir_ls/
 
+
+# Personal seed data — real tickets name real clients, keep it off the remote.
+/priv/repo/seeds.local.exs

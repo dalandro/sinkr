@@ -17,7 +17,12 @@ defmodule SinkrWeb.Router do
   scope "/", SinkrWeb do
     pipe_through :browser
 
-    get "/", PageController, :home
+    # "/tickets/new" has to come before "/tickets/:ref", or "new" gets read as
+    # a ticket ref.
+    live "/", TicketLive.Index, :index
+    live "/tickets/new", TicketLive.Index, :new
+    live "/tickets/:ref", TicketLive.Index, :show
+    live "/tickets/:ref/edit", TicketLive.Index, :edit
   end
 
   # Other scopes may use custom stacks.
