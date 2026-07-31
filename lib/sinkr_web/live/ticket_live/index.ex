@@ -127,7 +127,10 @@ defmodule SinkrWeb.TicketLive.Index do
 
   defp status_options, do: Enum.map(Ticket.statuses(), &{Phoenix.Naming.humanize(&1), &1})
   defp category_options, do: Enum.map(Ticket.categories(), &{Phoenix.Naming.humanize(&1), &1})
-  defp priority_options, do: Enum.map(0..3, &{"P#{&1}", &1})
+
+  defp priority_options do
+    Enum.map(Ticket.priorities(), fn {level, label} -> {"P#{level} — #{label}", level} end)
+  end
 
   defp status_tone(:active), do: "bg-success"
   defp status_tone(:blocked), do: "bg-error"
@@ -206,9 +209,9 @@ defmodule SinkrWeb.TicketLive.Index do
                 >
                   <span class="block truncate text-sm">{ticket.title}</span>
                   <span class="text-base-content/50 font-mono text-xs">
-                    {Ticket.display_ref(ticket)} · P{ticket.priority} · {Phoenix.Naming.humanize(
-                      ticket.category
-                    )}
+                    {Ticket.display_ref(ticket)} ·
+                    <span title={Ticket.priority_label(ticket.priority)}>P{ticket.priority}</span>
+                    · {Phoenix.Naming.humanize(ticket.category)}
                   </span>
                 </.link>
               </li>
@@ -257,9 +260,8 @@ defmodule SinkrWeb.TicketLive.Index do
             <h2 class="text-lg leading-snug font-semibold">{@selected.title}</h2>
 
             <p class="text-base-content/50 font-mono text-xs">
-              {Ticket.display_ref(@selected)} · P{@selected.priority} · {Phoenix.Naming.humanize(
-                @selected.category
-              )}
+              {Ticket.display_ref(@selected)} · {Phoenix.Naming.humanize(@selected.category)} · P{@selected.priority}
+              {Ticket.priority_label(@selected.priority)}
             </p>
 
             <div

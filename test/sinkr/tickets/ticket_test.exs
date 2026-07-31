@@ -18,6 +18,20 @@ defmodule Sinkr.Tickets.TicketTest do
 
       assert %{category: ["can't be blank"]} = errors_on(changeset)
     end
+
+    test "a ticket can't sit at a priority level that means nothing" do
+      changeset =
+        Ticket.changeset(%Ticket{}, %{title: "Odd one", category: :chore, priority: 7})
+
+      assert %{priority: ["is invalid"]} = errors_on(changeset)
+    end
+  end
+
+  describe "priority_label/1" do
+    test "each priority level says what it means" do
+      assert Ticket.priority_label(0) == "Drop everything"
+      assert Ticket.priority_label(3) == "Someday"
+    end
   end
 
   describe "display_ref/1" do

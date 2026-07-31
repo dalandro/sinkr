@@ -15,6 +15,15 @@ defmodule Sinkr.Tickets.Ticket do
   @statuses [:active, :blocked, :queued, :parked, :done]
   @categories [:bug, :feature, :review, :experiment, :chore, :idea]
 
+  # Priority answers "when", not "does this matter". Bounded, so every level a
+  # ticket can be at has a meaning attached to it.
+  @priorities [
+    {0, "Drop everything"},
+    {1, "This week"},
+    {2, "Soon"},
+    {3, "Someday"}
+  ]
+
   schema "tickets" do
     field :title, :string
     field :category, Ecto.Enum, values: @categories
@@ -32,6 +41,21 @@ defmodule Sinkr.Tickets.Ticket do
   def categories, do: @categories
 
   @doc """
+  The priority levels, most pressing first, each with what it actually means.
+
+  Priority is about *when*, not importance — everything here is worth doing or
+  it wouldn't be a ticket. Change the wording in `@priorities` and it changes
+  everywhere at once.
+  """
+  def priorities, do: @priorities
+
+  @doc "What a priority level means, e.g. `0` is #{inspect(elem(hd(@priorities), 1))}."
+  def priority_label(priority) do
+    {^priority, label} = Enum.find(@priorities, &(elem(&1, 0) == priority))
+    label
+  end
+
+  @doc """
   How a ticket is named in the UI and in URLs — `s-12`.
 
   Derived from the id rather than stored, so it can never drift out of step
@@ -43,5 +67,6 @@ defmodule Sinkr.Tickets.Ticket do
     ticket
     |> cast(attrs, [:title, :category, :status, :priority, :next_step])
     |> validate_required([:title, :category])
+    |> validate_inclusion(:priority, Enum.map(@priorities, &elem(&1, 0)))
   end
 end
