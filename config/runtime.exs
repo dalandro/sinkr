@@ -23,6 +23,15 @@ end
 # 4040 rather than Phoenix's 4000, which is already taken on this machine.
 config :sinkr, SinkrWeb.Endpoint, http: [port: String.to_integer(System.get_env("PORT", "4040"))]
 
+if config_env() in [:dev, :prod] do
+  # XDG_DATA_HOME wins when set; otherwise the usual ~/.local/share. Read
+  # from the environment here rather than in config.exs, since config.exs is
+  # compile-time and this is a single-user localhost app where the value can
+  # legitimately differ per machine it's deployed to.
+  data_home = System.get_env("XDG_DATA_HOME") || Path.join(System.get_env("HOME"), ".local/share")
+  config :sinkr, :snapshot_root, Path.join([data_home, "sinkr", "snapshots"])
+end
+
 if config_env() == :dev do
   # Reload browser tabs when matching files change.
   config :sinkr, SinkrWeb.Endpoint,

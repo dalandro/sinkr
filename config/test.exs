@@ -10,6 +10,11 @@ config :sinkr, Sinkr.Repo,
   pool_size: 5,
   pool: Ecto.Adapters.SQL.Sandbox
 
+# Belt-and-braces default: every test overrides this with its own @tag
+# :tmp_dir, but nothing in the suite should be able to reach the real store
+# just because a test forgot to.
+config :sinkr, :snapshot_root, Path.join(System.tmp_dir!(), "sinkr_test_snapshots")
+
 # We don't run a server during test. If one is required,
 # you can enable the server option below.
 config :sinkr, SinkrWeb.Endpoint,
