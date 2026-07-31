@@ -209,7 +209,6 @@ defmodule SinkrWeb.TicketLive.Index do
                 >
                   <span class="block truncate text-sm">{ticket.title}</span>
                   <span class="text-base-content/50 font-mono text-xs">
-                    {Ticket.display_ref(ticket)} ·
                     <span title={Ticket.priority_label(ticket.priority)}>P{ticket.priority}</span>
                     · {Phoenix.Naming.humanize(ticket.category)}
                   </span>
@@ -260,8 +259,9 @@ defmodule SinkrWeb.TicketLive.Index do
             <h2 class="text-lg leading-snug font-semibold">{@selected.title}</h2>
 
             <p class="text-base-content/50 font-mono text-xs">
-              {Ticket.display_ref(@selected)} · {Phoenix.Naming.humanize(@selected.category)} · P{@selected.priority}
-              {Ticket.priority_label(@selected.priority)}
+              ID: {Ticket.display_ref(@selected)} · Category: {Phoenix.Naming.humanize(
+                @selected.category
+              )} · Priority: {Ticket.priority_label(@selected.priority)} (P{@selected.priority})
             </p>
 
             <div
