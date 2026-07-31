@@ -23,6 +23,10 @@ defmodule SinkrWeb.Router do
     live "/tickets/new", TicketLive.Index, :new
     live "/tickets/:ref", TicketLive.Index, :show
     live "/tickets/:ref/edit", TicketLive.Index, :edit
+
+    # Not a ticket ref, so it doesn't collide with "/tickets/:ref" above —
+    # different first segment, order doesn't matter for this one.
+    get "/snapshots/:sha256", SnapshotController, :show
   end
 
   # Other scopes may use custom stacks.

@@ -29,8 +29,26 @@ defmodule Sinkr.SnapshotStore do
     {:ok, %{sha256: sha256, byte_size: byte_size(bytes)}}
   end
 
-  @doc "The absolute path a sha256 resolves to, whether or not anything is stored there yet."
+  @sha256_pattern ~r/\A[a-f0-9]{64}\z/
+
+  @doc "Whether `sha256` is 64 lowercase hex characters — the only shape safe to join into a path."
+  def valid_sha256?(sha256), do: sha256 =~ @sha256_pattern
+
+  @doc """
+  The absolute path a sha256 resolves to, whether or not anything is stored
+  there yet.
+
+  Raises on anything that isn't 64 lowercase hex characters. `sha256` usually
+  arrives here from outside this module (a URL param, in the controller's
+  case), and this is where it gets joined into a filesystem path — so this
+  function refuses bad shapes itself rather than trusting every caller to
+  have checked first.
+  """
   def path(sha256) do
+    unless valid_sha256?(sha256) do
+      raise ArgumentError, "not a sha256: #{inspect(sha256)}"
+    end
+
     <<dir::binary-size(2), rest::binary>> = sha256
     Path.join([root(), dir, rest])
   end
