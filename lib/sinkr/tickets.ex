@@ -149,6 +149,9 @@ defmodule Sinkr.Tickets do
   @doc "Takes a sinker off its ticket, taking any pinned snapshot with it."
   def detach_sinker(%Sinker{} = sinker), do: Repo.delete(sinker)
 
+  @doc "Finds a sinker by id, with its snapshot preloaded."
+  def get_sinker!(id), do: Repo.get!(Sinker, id) |> Repo.preload(:snapshot)
+
   @doc "Every sinker on a ticket, oldest first, with its snapshot preloaded."
   def list_sinkers(%Ticket{} = ticket) do
     Repo.all(

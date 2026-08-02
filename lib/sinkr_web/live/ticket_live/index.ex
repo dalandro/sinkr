@@ -11,6 +11,8 @@ defmodule SinkrWeb.TicketLive.Index do
   use SinkrWeb, :live_view
 
   alias Sinkr.Tickets
+  alias Sinkr.Tickets.Sinker
+  alias Sinkr.Tickets.Snapshot
   alias Sinkr.Tickets.Ticket
 
   @impl true
@@ -28,7 +30,11 @@ defmodule SinkrWeb.TicketLive.Index do
   end
 
   defp apply_action(socket, :show, %{"ref" => ref}) do
-    assign(socket, selected: Tickets.get_ticket_by_ref!(ref), editing: nil, form: nil)
+    ticket = Tickets.get_ticket_by_ref!(ref)
+
+    socket
+    |> assign(selected: ticket, editing: nil, form: nil)
+    |> load_file_entries()
   end
 
   defp apply_action(socket, :new, _params) do
@@ -89,6 +95,37 @@ defmodule SinkrWeb.TicketLive.Index do
      |> push_patch(to: ~p"/")}
   end
 
+  def handle_event("attach", %{"path" => path}, socket) do
+    case Tickets.attach_file(socket.assigns.selected, path) do
+      {:ok, _sinker} -> {:noreply, load_file_entries(socket)}
+      {:error, :enoent} -> {:noreply, put_flash(socket, :error, "Nothing at that path: #{path}")}
+    end
+  end
+
+  def handle_event("pin", %{"id" => id}, socket) do
+    case Tickets.pin_sinker(Tickets.get_sinker!(id)) do
+      {:error, :enoent} ->
+        {:noreply, put_flash(socket, :error, "Nothing at that path.")}
+
+      # {:ok, _snapshot} or {:error, :already_pinned} both land on a re-render.
+      _ ->
+        {:noreply, load_file_entries(socket)}
+    end
+  end
+
+  def handle_event("unpin", %{"id" => id}, socket) do
+    # Already-unpinned is a no-op, not an error worth surfacing.
+    Tickets.unpin_sinker(Tickets.get_sinker!(id))
+
+    {:noreply, load_file_entries(socket)}
+  end
+
+  def handle_event("detach", %{"id" => id}, socket) do
+    {:ok, _sinker} = Tickets.detach_sinker(Tickets.get_sinker!(id))
+
+    {:noreply, load_file_entries(socket)}
+  end
+
   defp save(socket, %Ticket{id: nil}, params) do
     case Tickets.create_ticket(params) do
       {:ok, ticket} -> saved(socket, ticket, "Opened.")
@@ -125,6 +162,10 @@ defmodule SinkrWeb.TicketLive.Index do
   defp filter_by_category(tickets, nil), do: tickets
   defp filter_by_category(tickets, category), do: Enum.filter(tickets, &(&1.category == category))
 
+  defp load_file_entries(socket) do
+    assign(socket, file_entries: Tickets.file_entries(socket.assigns.selected))
+  end
+
   defp status_options, do: Enum.map(Ticket.statuses(), &{Phoenix.Naming.humanize(&1), &1})
   defp category_options, do: Enum.map(Ticket.categories(), &{Phoenix.Naming.humanize(&1), &1})
 
@@ -143,6 +184,18 @@ defmodule SinkrWeb.TicketLive.Index do
 
   defp cancel_path(%Ticket{id: nil}), do: ~p"/"
   defp cancel_path(ticket), do: ~p"/tickets/#{Ticket.display_ref(ticket)}"
+
+  # `origin: :upload` sinkers get neither button: they're pinned the moment
+  # they're attached, so Pin would do nothing — and their copy is all there
+  # is, so Unpin would leave a record of nothing. Detach is their only out.
+  defp offer_pin?(%Sinker{origin: :path, snapshot: nil}), do: true
+  defp offer_pin?(_sinker), do: false
+
+  defp offer_unpin?(%Sinker{origin: :path, snapshot: %Snapshot{}}), do: true
+  defp offer_unpin?(_sinker), do: false
+
+  defp image_snapshot?(%{mime: "image/" <> _}), do: true
+  defp image_snapshot?(_snapshot), do: false
 
   @impl true
   def render(assigns) do
@@ -281,6 +334,92 @@ defmodule SinkrWeb.TicketLive.Index do
                 options={status_options()}
               />
             </form>
+
+            <div class="space-y-2">
+              <h3 class="text-base-content/60 text-xs font-semibold tracking-wide uppercase">
+                Files
+              </h3>
+
+              <p :if={@file_entries == []} class="text-base-content/70 text-sm">
+                Nothing attached yet.
+              </p>
+
+              <div
+                :for={entry <- @file_entries}
+                id={"sinker-#{entry.sinker.id}"}
+                data-role="sinker"
+                class="border-base-300 flex items-center justify-between gap-2 rounded border px-2 py-1.5 text-sm"
+              >
+                <div class="flex min-w-0 items-center gap-2">
+                  <img
+                    :if={entry.sinker.snapshot && image_snapshot?(entry.sinker.snapshot)}
+                    src={~p"/snapshots/#{entry.sinker.snapshot.sha256}"}
+                    class="max-h-24 rounded"
+                  />
+
+                  <div class="min-w-0">
+                    <a
+                      :if={entry.sinker.snapshot}
+                      href={~p"/snapshots/#{entry.sinker.snapshot.sha256}"}
+                      class="link block truncate"
+                    >
+                      {Sinker.display_name(entry.sinker)}
+                    </a>
+                    <span :if={is_nil(entry.sinker.snapshot)} class="block truncate">
+                      {Sinker.display_name(entry.sinker)}
+                    </span>
+
+                    <div class="flex gap-1 pt-0.5">
+                      <span :if={entry.sinker.snapshot} class="badge badge-xs badge-success">
+                        pinned
+                      </span>
+                      <span :if={entry.status == :missing} class="badge badge-xs badge-warning">
+                        missing
+                      </span>
+                    </div>
+                  </div>
+                </div>
+
+                <div class="flex shrink-0 gap-1">
+                  <button
+                    :if={offer_pin?(entry.sinker)}
+                    type="button"
+                    phx-click="pin"
+                    phx-value-id={entry.sinker.id}
+                    class="btn btn-xs"
+                  >
+                    Pin
+                  </button>
+                  <button
+                    :if={offer_unpin?(entry.sinker)}
+                    type="button"
+                    phx-click="unpin"
+                    phx-value-id={entry.sinker.id}
+                    class="btn btn-xs"
+                  >
+                    Unpin
+                  </button>
+                  <button
+                    type="button"
+                    phx-click="detach"
+                    phx-value-id={entry.sinker.id}
+                    class="btn btn-xs btn-error btn-soft"
+                  >
+                    Detach
+                  </button>
+                </div>
+              </div>
+
+              <form id="attach-file-form" phx-submit="attach" class="flex gap-2 pt-1">
+                <input
+                  type="text"
+                  name="path"
+                  placeholder="/path/to/file"
+                  class="input input-bordered input-sm flex-1"
+                />
+                <button type="submit" class="btn btn-sm">Attach</button>
+              </form>
+            </div>
 
             <div class="flex gap-2">
               <.button patch={~p"/tickets/#{Ticket.display_ref(@selected)}/edit"} id="edit-ticket">
