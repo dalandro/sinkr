@@ -28,7 +28,13 @@ import topbar from "../vendor/topbar"
 const csrfToken = document.querySelector("meta[name='csrf-token']").getAttribute("content")
 const liveSocket = new LiveSocket("/live", Socket, {
   longPollFallbackMs: 2500,
-  params: {_csrf_token: csrfToken},
+  params: {
+    _csrf_token: csrfToken,
+    flags: {
+      layout: localStorage.getItem("sinkr:layout"),
+      show_done: localStorage.getItem("sinkr:show_done"),
+    },
+  },
   hooks: {...colocatedHooks},
 })
 

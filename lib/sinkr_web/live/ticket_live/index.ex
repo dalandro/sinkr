@@ -17,9 +17,11 @@ defmodule SinkrWeb.TicketLive.Index do
 
   @impl true
   def mount(_params, _session, socket) do
+    flags = parse_flags(get_connect_params(socket)["flags"])
+
     {:ok,
      socket
-     |> assign(category_filter: nil)
+     |> assign(category_filter: nil, flags: flags)
      |> load_tickets()
      |> allow_upload(:files,
        accept: :any,
@@ -72,6 +74,12 @@ defmodule SinkrWeb.TicketLive.Index do
     filter = Enum.find(Ticket.categories(), &(to_string(&1) == category))
 
     {:noreply, socket |> assign(category_filter: filter) |> load_tickets()}
+  end
+
+  def handle_event("set_flag", %{"flag" => flag, "to" => to}, socket) do
+    flags = merge_flag(socket.assigns.flags, flag, to)
+
+    {:noreply, socket |> assign(flags: flags) |> load_tickets()}
   end
 
   def handle_event("validate", %{"ticket" => params}, socket) do
@@ -182,17 +190,41 @@ defmodule SinkrWeb.TicketLive.Index do
 
   defp load_tickets(socket) do
     all = Tickets.list_tickets()
-    visible = filter_by_category(all, socket.assigns.category_filter)
+
+    visible =
+      all
+      |> filter_by_category(socket.assigns.category_filter)
+      |> filter_by_show_done(socket.assigns.flags.show_done)
 
     assign(socket,
       total_count: length(all),
       visible_count: length(visible),
+      visible: visible,
       grouped: Tickets.group_by_status(visible)
     )
   end
 
   defp filter_by_category(tickets, nil), do: tickets
   defp filter_by_category(tickets, category), do: Enum.filter(tickets, &(&1.category == category))
+
+  defp filter_by_show_done(tickets, true), do: tickets
+  defp filter_by_show_done(tickets, false), do: Enum.reject(tickets, &(&1.status == :done))
+
+  defp default_flags, do: %{layout: :grouped, show_done: true}
+
+  defp parse_flags(flags) when is_map(flags) do
+    Enum.reduce(flags, default_flags(), fn {flag, to}, acc -> merge_flag(acc, flag, to) end)
+  end
+
+  defp parse_flags(_flags), do: default_flags()
+
+  # Matching known flag/value pairs rather than String.to_atom/1 keeps a junk
+  # flag or value from minting an atom; anything unrecognised is a no-op.
+  defp merge_flag(flags, "layout", "flat"), do: %{flags | layout: :flat}
+  defp merge_flag(flags, "layout", "grouped"), do: %{flags | layout: :grouped}
+  defp merge_flag(flags, "show_done", "true"), do: %{flags | show_done: true}
+  defp merge_flag(flags, "show_done", "false"), do: %{flags | show_done: false}
+  defp merge_flag(flags, _flag, _to), do: flags
 
   defp load_file_entries(socket) do
     assign(socket, file_entries: Tickets.file_entries(socket.assigns.selected))
@@ -232,7 +264,7 @@ defmodule SinkrWeb.TicketLive.Index do
   @impl true
   def render(assigns) do
     ~H"""
-    <Layouts.app flash={@flash}>
+    <Layouts.app flash={@flash} flags={@flags}>
       <.header>
         Loose ends
         <:subtitle>
@@ -269,11 +301,19 @@ defmodule SinkrWeb.TicketLive.Index do
 
       <div class="grid gap-6 lg:grid-cols-2">
         <div class="space-y-5">
-          <p :if={@grouped == []} class="text-base-content/70 text-sm">
+          <p :if={@visible == []} class="text-base-content/70 text-sm">
             Nothing to show. <.link navigate={~p"/tickets/new"} class="link">Open one</.link>.
           </p>
 
-          <section :for={{status, tickets} <- @grouped}>
+          <ul :if={@flags.layout == :flat} class="divide-base-300 divide-y">
+            <.ticket_row
+              :for={ticket <- Tickets.sort_by_priority(@visible)}
+              ticket={ticket}
+              selected={@selected}
+            />
+          </ul>
+
+          <section :for={{status, tickets} <- @grouped} :if={@flags.layout == :grouped}>
             <h2 class="text-base-content/60 mb-1 flex items-center gap-2 text-xs font-semibold tracking-wide uppercase">
               <span class={["size-2 rounded-full", status_tone(status)]}></span>
               {Phoenix.Naming.humanize(status)}
@@ -281,24 +321,7 @@ defmodule SinkrWeb.TicketLive.Index do
             </h2>
 
             <ul class="divide-base-300 divide-y">
-              <li :for={ticket <- tickets}>
-                <.link
-                  patch={~p"/tickets/#{Ticket.display_ref(ticket)}"}
-                  class={[
-                    "hover:bg-base-200 block border-l-2 px-2 py-2",
-                    if(selected?(@selected, ticket),
-                      do: "bg-base-200 border-primary",
-                      else: "border-transparent"
-                    )
-                  ]}
-                >
-                  <span class="block truncate text-sm">{ticket.title}</span>
-                  <span class="text-base-content/70 text-xs">
-                    <span title={Ticket.priority_label(ticket.priority)}>P{ticket.priority}</span>
-                    · {Phoenix.Naming.humanize(ticket.category)}
-                  </span>
-                </.link>
-              </li>
+              <.ticket_row :for={ticket <- tickets} ticket={ticket} selected={@selected} />
             </ul>
           </section>
         </div>
@@ -386,7 +409,7 @@ defmodule SinkrWeb.TicketLive.Index do
                   <img
                     :if={entry.sinker.snapshot && image_snapshot?(entry.sinker.snapshot)}
                     src={~p"/snapshots/#{entry.sinker.snapshot.sha256}"}
-                    class="max-h-24 rounded"
+                    class="sinker-thumb max-h-24 rounded"
                   />
 
                   <div class="min-w-0">
@@ -484,6 +507,34 @@ defmodule SinkrWeb.TicketLive.Index do
         </div>
       </div>
     </Layouts.app>
+    """
+  end
+
+  # Shared by both the grouped and flat layouts, so a ticket looks the same
+  # row either way — only what surrounds it changes.
+  attr :ticket, Ticket, required: true
+  attr :selected, :any, required: true
+
+  defp ticket_row(assigns) do
+    ~H"""
+    <li>
+      <.link
+        patch={~p"/tickets/#{Ticket.display_ref(@ticket)}"}
+        class={[
+          "ticket-row hover:bg-base-200 block border-l-2 px-2 py-2",
+          if(selected?(@selected, @ticket),
+            do: "bg-base-200 border-primary",
+            else: "border-transparent"
+          )
+        ]}
+      >
+        <span class="block truncate text-sm">{@ticket.title}</span>
+        <span class="text-base-content/70 text-xs">
+          <span title={Ticket.priority_label(@ticket.priority)}>P{@ticket.priority}</span>
+          · {Phoenix.Naming.humanize(@ticket.category)}
+        </span>
+      </.link>
+    </li>
     """
   end
 end

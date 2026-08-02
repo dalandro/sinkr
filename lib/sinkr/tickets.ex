@@ -65,6 +65,13 @@ defmodule Sinkr.Tickets do
     |> Enum.reject(fn {_status, tickets} -> tickets == [] end)
   end
 
+  @doc "Sorts tickets flat, most pressing first, ties broken by status order."
+  def sort_by_priority(tickets) do
+    status_index = Ticket.statuses() |> Enum.with_index() |> Map.new()
+
+    Enum.sort_by(tickets, fn t -> {t.priority, Map.fetch!(status_index, t.status)} end)
+  end
+
   @doc """
   Points the ticket at a file already sitting on disk.
 

@@ -34,6 +34,19 @@
             document.documentElement.setAttribute("data-theme", systemTheme());
           }
         });
+
+        // Density and thumbnails are client-only view flags — never sent to the
+        // server, so they're set here before paint the same way theme is.
+        document.documentElement.setAttribute("data-density", localStorage.getItem("sinkr:density") || "cozy");
+        document.documentElement.setAttribute("data-thumbs", localStorage.getItem("sinkr:thumbs") || "on");
+
+        window.addEventListener("sinkr:set-flag", (e) => {
+          const {flag, to} = e.target.dataset;
+          localStorage.setItem("sinkr:" + flag, to);
+          if (flag === "density" || flag === "thumbs") {
+            document.documentElement.setAttribute("data-" + flag, to);
+          }
+        });
       })();
     </script>
   </head>

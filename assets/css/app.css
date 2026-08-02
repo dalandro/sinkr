@@ -112,4 +112,17 @@
 /* Make LiveView wrapper divs transparent for layout */
 [data-phx-session], [data-phx-teleported-src] { display: contents }
 
+/* Density and thumbnails are client-only view flags (see root.html.heex) —
+   they never reach the server, so they act through these attribute
+   selectors on <html> rather than a conditional class from an assign. */
+[data-density="compact"] .ticket-row {
+  padding-top: 0.25rem;
+  padding-bottom: 0.25rem;
+  font-size: 0.75rem;
+}
+
+[data-thumbs="off"] .sinker-thumb {
+  display: none;
+}
+
 /* This file is for your main application CSS */
