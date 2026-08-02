@@ -17,7 +17,16 @@ defmodule SinkrWeb.TicketLive.Index do
 
   @impl true
   def mount(_params, _session, socket) do
-    {:ok, socket |> assign(category_filter: nil) |> load_tickets()}
+    {:ok,
+     socket
+     |> assign(category_filter: nil)
+     |> load_tickets()
+     |> allow_upload(:files,
+       accept: :any,
+       max_entries: 10,
+       auto_upload: true,
+       progress: &handle_progress/3
+     )}
   end
 
   @impl true
@@ -102,6 +111,12 @@ defmodule SinkrWeb.TicketLive.Index do
     end
   end
 
+  # Required for `phx-change` on the upload form; the drop/pick itself is
+  # handled by the upload's `progress` callback, not this event.
+  def handle_event("validate_upload", _params, socket) do
+    {:noreply, socket}
+  end
+
   def handle_event("pin", %{"id" => id}, socket) do
     case Tickets.pin_sinker(Tickets.get_sinker!(id)) do
       {:error, :enoent} ->
@@ -124,6 +139,23 @@ defmodule SinkrWeb.TicketLive.Index do
     {:ok, _sinker} = Tickets.detach_sinker(Tickets.get_sinker!(id))
 
     {:noreply, load_file_entries(socket)}
+  end
+
+  # Only act once an entry is fully received; intermediate progress ticks are
+  # a no-op re-render, same as `auto_upload` expects.
+  defp handle_progress(:files, entry, socket) do
+    if entry.done? do
+      consume_uploaded_entry(socket, entry, fn %{path: path} ->
+        Tickets.attach_upload(socket.assigns.selected, %{
+          filename: entry.client_name,
+          tmp_path: path
+        })
+      end)
+
+      {:noreply, load_file_entries(socket)}
+    else
+      {:noreply, socket}
+    end
   end
 
   defp save(socket, %Ticket{id: nil}, params) do
@@ -418,6 +450,16 @@ defmodule SinkrWeb.TicketLive.Index do
                   class="input input-bordered input-sm flex-1"
                 />
                 <button type="submit" class="btn btn-sm">Attach</button>
+              </form>
+
+              <form id="upload-form" phx-change="validate_upload">
+                <div
+                  phx-drop-target={@uploads.files.ref}
+                  class="border-base-300 rounded border border-dashed px-2 py-3 text-center text-xs text-base-content/70"
+                >
+                  <.live_file_input upload={@uploads.files} class="file-input file-input-sm" />
+                  …or drop files here
+                </div>
               </form>
             </div>
 

@@ -121,6 +121,38 @@ defmodule SinkrWeb.TicketLive.FilesTest do
   end
 
   describe "uploads" do
+    # One file_input call per file: the test harness shares a single client
+    # process across a batch, and consuming the first finished entry (as a
+    # real browser safely does — each entry has its own channel) tears that
+    # shared process down under its siblings.
+    test "dropped files land attached, pinned, with nothing left to click", %{
+      conn: conn,
+      path: path,
+      ticket: ticket
+    } do
+      {:ok, live, _html} = live(conn, path)
+
+      render_upload(
+        file_input(live, "#upload-form", :files, [%{name: "Screenshot.png", content: "png bytes"}]),
+        "Screenshot.png"
+      )
+
+      html =
+        render_upload(
+          file_input(live, "#upload-form", :files, [%{name: "run.log", content: "boom\n"}]),
+          "run.log"
+        )
+
+      assert html =~ "Screenshot.png"
+      assert html =~ "run.log"
+      assert html =~ "pinned"
+
+      sinkers = Tickets.list_sinkers(ticket)
+      assert length(sinkers) == 2
+      assert Enum.all?(sinkers, &(&1.origin == :upload))
+      assert Enum.all?(sinkers, & &1.snapshot)
+    end
+
     test "a dropped file can be detached but never unpinned — its copy is all there is", %{
       conn: conn,
       path: path,
