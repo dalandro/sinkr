@@ -96,11 +96,13 @@ defmodule SinkrWeb.CoreComponents do
   """
   attr :rest, :global, include: ~w(href navigate patch method download name value disabled)
   attr :class, :any
-  attr :variant, :string, values: ~w(primary)
+  attr :variant, :string, values: ~w(primary danger)
   slot :inner_block, required: true
 
   def button(%{rest: rest} = assigns) do
-    variants = %{"primary" => "btn-primary", nil => "btn-primary btn-soft"}
+    # An unmarked button is quiet, not a second primary — otherwise Edit and
+    # Delete end up shouting as loudly as the one action you actually came for.
+    variants = %{"primary" => "btn-primary", "danger" => "btn-error btn-soft", nil => "btn-soft"}
 
     assigns =
       assign_new(assigns, :class, fn ->

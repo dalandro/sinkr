@@ -26,25 +26,35 @@
   default: false;
   prefersdark: true;
   color-scheme: "dark";
-  --color-base-100: oklch(30.33% 0.016 252.42);
-  --color-base-200: oklch(25.26% 0.014 253.1);
-  --color-base-300: oklch(20.15% 0.012 254.09);
-  --color-base-content: oklch(97.807% 0.029 256.847);
-  --color-primary: oklch(58% 0.233 277.117);
-  --color-primary-content: oklch(96% 0.018 272.314);
-  --color-secondary: oklch(58% 0.233 277.117);
-  --color-secondary-content: oklch(96% 0.018 272.314);
-  --color-accent: oklch(60% 0.25 292.717);
-  --color-accent-content: oklch(96% 0.016 293.756);
-  --color-neutral: oklch(37% 0.044 257.287);
-  --color-neutral-content: oklch(98% 0.003 247.858);
-  --color-info: oklch(58% 0.158 241.966);
+  /* Surfaces get lighter as they stack, rather than darker: base-100 is the
+     page, base-200 is anything raised off it, base-300 is a line drawn on
+     top. The stock ramp ran the other way and only spanned ten points of
+     lightness, which left a selected row looking like a hole and dividers
+     invisible. */
+  --color-base-100: oklch(19.5% 0.012 255);
+  --color-base-200: oklch(23.5% 0.013 255);
+  --color-base-300: oklch(29% 0.015 255);
+  /* Off-white rather than near-white. Body text spends most of its life at
+     70% opacity for secondary detail, and pure white at that opacity is
+     what makes small text on a dark background sting. */
+  --color-base-content: oklch(92% 0.008 255);
+  --color-primary: oklch(64% 0.17 274);
+  --color-primary-content: oklch(97% 0.012 274);
+  /* Distinct from primary, which it used to duplicate exactly — so a quiet
+     action can look quiet instead of shouting alongside the main one. */
+  --color-secondary: oklch(46% 0.03 258);
+  --color-secondary-content: oklch(96% 0.005 258);
+  --color-accent: oklch(66% 0.19 292.717);
+  --color-accent-content: oklch(97% 0.014 293.756);
+  --color-neutral: oklch(32% 0.02 257);
+  --color-neutral-content: oklch(96% 0.003 247.858);
+  --color-info: oklch(65% 0.13 235);
   --color-info-content: oklch(97% 0.013 236.62);
-  --color-success: oklch(60% 0.118 184.704);
+  --color-success: oklch(66% 0.12 175);
   --color-success-content: oklch(98% 0.014 180.72);
-  --color-warning: oklch(66% 0.179 58.318);
+  --color-warning: oklch(72% 0.15 65);
   --color-warning-content: oklch(98% 0.022 95.277);
-  --color-error: oklch(58% 0.253 17.585);
+  --color-error: oklch(63% 0.19 20);
   --color-error-content: oklch(96% 0.015 12.422);
   --radius-selector: 0.25rem;
   --radius-field: 0.25rem;

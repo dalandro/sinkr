@@ -184,7 +184,7 @@ defmodule SinkrWeb.TicketLive.Index do
 
       <div class="grid gap-6 lg:grid-cols-2">
         <div class="space-y-5">
-          <p :if={@grouped == []} class="text-base-content/60 text-sm">
+          <p :if={@grouped == []} class="text-base-content/70 text-sm">
             Nothing to show. <.link navigate={~p"/tickets/new"} class="link">Open one</.link>.
           </p>
 
@@ -192,7 +192,7 @@ defmodule SinkrWeb.TicketLive.Index do
             <h2 class="text-base-content/60 mb-1 flex items-center gap-2 text-xs font-semibold tracking-wide uppercase">
               <span class={["size-2 rounded-full", status_tone(status)]}></span>
               {Phoenix.Naming.humanize(status)}
-              <span class="text-base-content/40 font-normal">{length(tickets)}</span>
+              <span class="text-base-content/60 font-normal">{length(tickets)}</span>
             </h2>
 
             <ul class="divide-base-300 divide-y">
@@ -208,7 +208,7 @@ defmodule SinkrWeb.TicketLive.Index do
                   ]}
                 >
                   <span class="block truncate text-sm">{ticket.title}</span>
-                  <span class="text-base-content/50 font-mono text-xs">
+                  <span class="text-base-content/70 text-xs">
                     <span title={Ticket.priority_label(ticket.priority)}>P{ticket.priority}</span>
                     · {Phoenix.Naming.humanize(ticket.category)}
                   </span>
@@ -258,7 +258,7 @@ defmodule SinkrWeb.TicketLive.Index do
           <div :if={is_nil(@form) && @selected} class="space-y-4">
             <h2 class="text-lg leading-snug font-semibold">{@selected.title}</h2>
 
-            <p class="text-base-content/50 font-mono text-xs">
+            <p class="text-base-content/70 text-xs">
               ID: {Ticket.display_ref(@selected)} · Category: {Phoenix.Naming.humanize(
                 @selected.category
               )} · Priority: {Ticket.priority_label(@selected.priority)} (P{@selected.priority})
@@ -287,6 +287,7 @@ defmodule SinkrWeb.TicketLive.Index do
                 Edit
               </.button>
               <.button
+                variant="danger"
                 phx-click="delete"
                 id="delete-ticket"
                 data-confirm="Throw this ticket away for good?"
@@ -296,7 +297,7 @@ defmodule SinkrWeb.TicketLive.Index do
             </div>
           </div>
 
-          <p :if={is_nil(@form) && is_nil(@selected)} class="text-base-content/60 text-sm">
+          <p :if={is_nil(@form) && is_nil(@selected)} class="text-base-content/70 text-sm">
             Pick a ticket to see it.
           </p>
         </div>
