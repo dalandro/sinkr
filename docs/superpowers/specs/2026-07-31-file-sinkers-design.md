@@ -143,16 +143,23 @@ Next step: make the scalar check reject arrays
 
 ### `Sinkr.CLI`
 
-`main(argv)`, commands `show <ref>` and `list`. Logic lives here and is tested
-with captured IO; the escript wrapper is three lines.
+Commands `show <ref>` and `list`. All behaviour lives in `run/1`, which returns
+`{:ok, output}` / `{:error, message}` and is tested directly; `main/1` prints,
+halts, and stays too thin to need tests.
 
 **Starts `Sinkr.Repo` only — never the endpoint**, or it fights a running server
 for port 4040. SQLite is in WAL mode, so reads while the server is live are safe.
 
+Shipped as `bin/sinkr`, a shell wrapper around
+`mix run --no-start -e 'Sinkr.CLI.main(...)'`, not as a compiled escript: an
+escript doesn't evaluate `config/runtime.exs`, so the snapshot root and database
+path would have to be re-derived in a second place. The wrapper costs ~300 ms
+more per invocation and keeps one config path.
+
 Measured on this machine 2026-07-31: bare BEAM boot 155 ms; full app boot plus
 one ticket query via `mix run` 561 ms. Reusing a running server's BEAM over
 distributed Erlang could save at most ~400 ms, at the cost of node names,
-cookies, and an is-it-up branch with its own failure modes. Rejected. The escript
+cookies, and an is-it-up branch with its own failure modes. Rejected. The CLI
 always boots its own Repo — one code path, server up or down.
 
 ## Web UI

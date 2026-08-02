@@ -160,6 +160,27 @@ defmodule Sinkr.Tickets do
   end
 
   @doc """
+  Builds the entry list `Sinkr.Tickets.Markdown.render/2` needs: every sinker
+  on the ticket, paired with its live `file_status/1` and, when it has been
+  pinned, the path its copy lives at.
+
+  Lives here rather than in the CLI so the later `.md` route and MCP tool
+  don't each reinvent this join — they call this and hand the result
+  straight to `Markdown.render/2`.
+  """
+  def file_entries(%Ticket{} = ticket) do
+    ticket
+    |> list_sinkers()
+    |> Enum.map(fn sinker ->
+      %{
+        sinker: sinker,
+        status: file_status(sinker),
+        snapshot_path: snapshot_path(sinker.snapshot)
+      }
+    end)
+  end
+
+  @doc """
   Whether a sinker's file can be read right now.
 
   This is never stored, only computed when you ask — the same rule this app
@@ -175,6 +196,9 @@ defmodule Sinkr.Tickets do
   def file_status(%Sinker{origin: :path, value: value}) do
     if File.exists?(value), do: :on_disk, else: :missing
   end
+
+  defp snapshot_path(nil), do: nil
+  defp snapshot_path(%Snapshot{sha256: sha256}), do: SnapshotStore.path(sha256)
 
   # Asked before pinning rather than letting the unique index refuse the
   # insert, so a double-clicked button gets an answer instead of a 500.

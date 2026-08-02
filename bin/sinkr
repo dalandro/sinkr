@@ -1,0 +1,11 @@
+#!/usr/bin/env bash
+# Runs Sinkr.CLI from anywhere. `--no-start` loads config (including
+# config/runtime.exs) and compiled code without starting the application
+# supervision tree, so this never fights a running dev server for port 4040.
+set -euo pipefail
+
+script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+project_root="$(dirname "$script_dir")"
+
+cd "$project_root"
+exec mix run --no-start -e 'Sinkr.CLI.main(System.argv())' -- "$@"
