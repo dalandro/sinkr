@@ -79,12 +79,13 @@ defmodule Sinkr.Tickets do
   what's stored means the same thing later regardless of the directory this
   was called from. Refuses a path with nothing at it: that's not a file gone
   missing later (which is expected, and renders as `missing`), that's a typo
-  worth catching right now.
+  worth catching right now. Regular files only — a directory (which is also
+  what a blank path expands to) can't sink.
   """
   def attach_file(%Ticket{} = ticket, path) do
     expanded = Path.expand(path)
 
-    if File.exists?(expanded) do
+    if File.regular?(expanded) do
       %Sinker{ticket_id: ticket.id}
       |> Sinker.changeset(%{type: :file, origin: :path, value: expanded})
       |> Repo.insert()

@@ -57,6 +57,16 @@ defmodule Sinkr.Tickets.FileSinkersTest do
       assert Tickets.list_sinkers(ticket) == []
     end
 
+    test "a blank path is refused, not resolved to the current directory", %{ticket: ticket} do
+      assert {:error, :enoent} = Tickets.attach_file(ticket, "")
+      assert Tickets.list_sinkers(ticket) == []
+    end
+
+    test "a directory is refused — only files sink", %{ticket: ticket, dir: dir} do
+      assert {:error, :enoent} = Tickets.attach_file(ticket, dir)
+      assert Tickets.list_sinkers(ticket) == []
+    end
+
     test "a fresh attachment is not pinned — that's a separate decision", %{
       ticket: ticket,
       log: log

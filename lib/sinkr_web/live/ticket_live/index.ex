@@ -475,6 +475,7 @@ defmodule SinkrWeb.TicketLive.Index do
                 <input
                   type="text"
                   name="path"
+                  required
                   placeholder="/path/to/file"
                   class="input input-bordered input-sm flex-1"
                 />
