@@ -313,17 +313,23 @@ defmodule SinkrWeb.TicketLive.Index do
             />
           </ul>
 
-          <section :for={{status, tickets} <- @grouped} :if={@flags.layout == :grouped}>
-            <h2 class="text-base-content/60 mb-1 flex items-center gap-2 text-xs font-semibold tracking-wide uppercase">
-              <span class={["size-2 rounded-full", status_tone(status)]}></span>
-              {Phoenix.Naming.humanize(status)}
-              <span class="text-base-content/60 font-normal">{length(tickets)}</span>
-            </h2>
+          <details
+            :for={{status, tickets} <- @grouped}
+            :if={@flags.layout == :grouped}
+            open={status != :done}
+          >
+            <summary class="cursor-pointer select-none">
+              <h2 class="text-base-content/60 mb-1 inline-flex items-center gap-2 text-xs font-semibold tracking-wide uppercase">
+                <span class={["size-2 rounded-full", status_tone(status)]}></span>
+                {Phoenix.Naming.humanize(status)}
+                <span class="text-base-content/60 font-normal">{length(tickets)}</span>
+              </h2>
+            </summary>
 
             <ul class="divide-base-300 divide-y">
               <.ticket_row :for={ticket <- tickets} ticket={ticket} selected={@selected} />
             </ul>
-          </section>
+          </details>
         </div>
 
         <div class="lg:border-base-300 lg:sticky lg:top-4 lg:max-h-[calc(100vh-2rem)] lg:self-start lg:overflow-y-auto lg:border-l lg:pl-6">

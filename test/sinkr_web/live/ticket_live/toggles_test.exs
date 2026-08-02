@@ -73,6 +73,16 @@ defmodule SinkrWeb.TicketLive.TogglesTest do
     end
   end
 
+  describe "grouped sections" do
+    test "done starts folded, the rest open", %{conn: conn} do
+      {:ok, live, _html} = live(conn, ~p"/")
+
+      assert has_element?(live, "details[open] h2", "Active")
+      assert has_element?(live, "details h2", "Done")
+      refute has_element?(live, "details[open] h2", "Done")
+    end
+  end
+
   describe "the cog" do
     test "switching to flat re-renders the list live", %{conn: conn} do
       {:ok, live, _html} = live(conn, ~p"/")
