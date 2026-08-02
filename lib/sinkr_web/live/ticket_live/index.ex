@@ -271,7 +271,7 @@ defmodule SinkrWeb.TicketLive.Index do
           </section>
         </div>
 
-        <div class="lg:border-base-300 lg:border-l lg:pl-6">
+        <div class="lg:border-base-300 lg:sticky lg:top-4 lg:max-h-[calc(100vh-2rem)] lg:self-start lg:overflow-y-auto lg:border-l lg:pl-6">
           <div :if={@form} class="space-y-4">
             <h2 class="text-lg font-semibold">
               {if @editing.id, do: "Editing #{Ticket.display_ref(@editing)}", else: "New ticket"}
