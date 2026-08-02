@@ -46,6 +46,10 @@ defmodule SinkrWeb.TicketLive.Index do
     socket
     |> assign(selected: ticket, editing: nil, form: nil)
     |> load_file_entries()
+    # Folded is the arrival default for a crowd of files; decided once per
+    # ticket-open so attaching another file can't yank the section shut
+    # under the cursor.
+    |> then(&assign(&1, files_open: length(&1.assigns.file_entries) <= 1))
   end
 
   defp apply_action(socket, :new, _params) do
@@ -99,19 +103,21 @@ defmodule SinkrWeb.TicketLive.Index do
   def handle_event("set_status", %{"status" => status}, socket) do
     {:ok, updated} = Tickets.update_ticket(socket.assigns.selected, %{status: status})
 
-    {:noreply, socket |> assign(selected: updated) |> load_tickets()}
+    {:noreply,
+     socket |> assign(selected: updated) |> load_tickets() |> flash_then_clear("Saved.")}
   end
 
   def handle_event("set_priority", %{"priority" => priority}, socket) do
     {:ok, updated} = Tickets.update_ticket(socket.assigns.selected, %{priority: priority})
 
-    {:noreply, socket |> assign(selected: updated) |> load_tickets()}
+    {:noreply,
+     socket |> assign(selected: updated) |> load_tickets() |> flash_then_clear("Saved.")}
   end
 
   def handle_event("set_next_step", %{"next_step" => next_step}, socket) do
     {:ok, updated} = Tickets.update_ticket(socket.assigns.selected, %{next_step: next_step})
 
-    {:noreply, assign(socket, selected: updated)}
+    {:noreply, socket |> assign(selected: updated) |> flash_then_clear("Saved.")}
   end
 
   def handle_event("delete", _params, socket) do
@@ -196,9 +202,19 @@ defmodule SinkrWeb.TicketLive.Index do
     {:noreply,
      socket
      |> load_tickets()
-     |> put_flash(:info, message)
+     |> flash_then_clear(message)
      |> push_patch(to: ~p"/tickets/#{Ticket.display_ref(ticket)}")}
   end
+
+  # Confirmation, not furniture: the flash announces the save, then clears
+  # itself instead of parking on screen until clicked.
+  defp flash_then_clear(socket, message) do
+    Process.send_after(self(), :clear_flash, 3_000)
+    put_flash(socket, :info, message)
+  end
+
+  @impl true
+  def handle_info(:clear_flash, socket), do: {:noreply, clear_flash(socket)}
 
   defp load_tickets(socket) do
     all = Tickets.list_tickets()
@@ -424,10 +440,12 @@ defmodule SinkrWeb.TicketLive.Index do
               </form>
             </div>
 
-            <div class="space-y-2">
-              <h3 class="text-base-content/60 text-xs font-semibold tracking-wide uppercase">
-                Files
-              </h3>
+            <details id="files-section" open={@files_open} class="space-y-2">
+              <summary class="cursor-pointer select-none">
+                <h3 class="text-base-content/60 inline-flex text-xs font-semibold tracking-wide uppercase">
+                  Files ({length(@file_entries)})
+                </h3>
+              </summary>
 
               <p :if={@file_entries == []} class="text-base-content/70 text-sm">
                 Nothing attached yet.
@@ -492,6 +510,7 @@ defmodule SinkrWeb.TicketLive.Index do
                     type="button"
                     phx-click="detach"
                     phx-value-id={entry.sinker.id}
+                    data-confirm="Take this file off the ticket?"
                     class="btn btn-xs btn-error btn-soft"
                   >
                     Detach
@@ -519,7 +538,7 @@ defmodule SinkrWeb.TicketLive.Index do
                   …or drop files here
                 </div>
               </form>
-            </div>
+            </details>
 
             <div class="flex gap-2">
               <.button patch={~p"/tickets/#{Ticket.display_ref(@selected)}/edit"} id="edit-ticket">

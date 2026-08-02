@@ -173,7 +173,52 @@ defmodule SinkrWeb.TicketLive.FilesTest do
     end
   end
 
+  describe "folding" do
+    test "one file leaves the section open", %{conn: conn, path: path, ticket: ticket, log: log} do
+      {:ok, _sinker} = Tickets.attach_file(ticket, log)
+
+      {:ok, live, _html} = live(conn, path)
+
+      assert has_element?(live, "#files-section[open]")
+      assert has_element?(live, "#files-section summary", "Files (1)")
+    end
+
+    test "more than one file folds the section, count still showing", %{
+      conn: conn,
+      path: path,
+      ticket: ticket,
+      log: log,
+      dir: dir
+    } do
+      other = Path.join(dir, "other.log")
+      File.write!(other, "more\n")
+      {:ok, _} = Tickets.attach_file(ticket, log)
+      {:ok, _} = Tickets.attach_file(ticket, other)
+
+      {:ok, live, _html} = live(conn, path)
+
+      refute has_element?(live, "#files-section[open]")
+      assert has_element?(live, "#files-section summary", "Files (2)")
+    end
+
+    test "no files leaves the section open so attaching stays in reach", %{
+      conn: conn,
+      path: path
+    } do
+      {:ok, live, _html} = live(conn, path)
+
+      assert has_element?(live, "#files-section[open]")
+    end
+  end
+
   describe "detaching" do
+    test "detach asks before letting go", %{conn: conn, path: path, ticket: ticket, log: log} do
+      {:ok, sinker} = Tickets.attach_file(ticket, log)
+      {:ok, live, _html} = live(conn, path)
+
+      assert has_element?(live, "#sinker-#{sinker.id} button[phx-click=detach][data-confirm]")
+    end
+
     test "the file leaves the ticket", %{conn: conn, path: path, ticket: ticket, log: log} do
       {:ok, sinker} = Tickets.attach_file(ticket, log)
       {:ok, live, _html} = live(conn, path)

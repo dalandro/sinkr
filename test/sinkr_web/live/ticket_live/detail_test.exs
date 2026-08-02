@@ -43,6 +43,33 @@ defmodule SinkrWeb.TicketLive.DetailTest do
     assert html =~ "Call Bob about the fixture"
   end
 
+  test "saving the edit form says so", %{conn: conn, path: path} do
+    {:ok, live, _html} = live(conn, path)
+
+    live |> element("#edit-ticket") |> render_click()
+
+    html =
+      live
+      |> form("#ticket-form", %{"ticket" => %{"title" => "Fix the flaky spec properly"}})
+      |> render_submit()
+
+    assert html =~ "Saved."
+  end
+
+  test "inline edits say Saved too, and it clears itself", %{conn: conn, path: path} do
+    {:ok, live, _html} = live(conn, path)
+
+    html =
+      live
+      |> form("#quick-priority", %{"priority" => "1"})
+      |> render_change()
+
+    assert html =~ "Saved."
+
+    send(live.pid, :clear_flash)
+    refute render(live) =~ "Saved."
+  end
+
   test "a ticket without a next step invites one instead of hiding the field", %{
     conn: conn,
     path: path
