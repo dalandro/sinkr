@@ -102,6 +102,18 @@ defmodule SinkrWeb.TicketLive.Index do
     {:noreply, socket |> assign(selected: updated) |> load_tickets()}
   end
 
+  def handle_event("set_priority", %{"priority" => priority}, socket) do
+    {:ok, updated} = Tickets.update_ticket(socket.assigns.selected, %{priority: priority})
+
+    {:noreply, socket |> assign(selected: updated) |> load_tickets()}
+  end
+
+  def handle_event("set_next_step", %{"next_step" => next_step}, socket) do
+    {:ok, updated} = Tickets.update_ticket(socket.assigns.selected, %{next_step: next_step})
+
+    {:noreply, assign(socket, selected: updated)}
+  end
+
   def handle_event("delete", _params, socket) do
     {:ok, _ticket} = Tickets.delete_ticket(socket.assigns.selected)
 
@@ -375,26 +387,42 @@ defmodule SinkrWeb.TicketLive.Index do
             <p class="text-base-content/70 text-xs">
               ID: {Ticket.display_ref(@selected)} · Category: {Phoenix.Naming.humanize(
                 @selected.category
-              )} · Priority: {Ticket.priority_label(@selected.priority)} (P{@selected.priority})
+              )}
             </p>
 
-            <div
-              :if={@selected.next_step}
-              class="border-warning bg-warning/10 rounded border-l-2 py-2 pl-3 text-sm"
-            >
-              {@selected.next_step}
-            </div>
-
-            <form phx-change="set_status" id="quick-status">
-              <.input
-                type="select"
-                id="quick-status-select"
-                name="status"
-                label="Status"
-                value={@selected.status}
-                options={status_options()}
-              />
+            <form phx-change="set_next_step" id="next-step">
+              <textarea
+                name="next_step"
+                rows="2"
+                phx-debounce="blur"
+                placeholder="What's the next thing you'd do?"
+                class="border-warning bg-warning/10 focus:bg-warning/20 w-full resize-none rounded border-l-2 py-2 pl-3 text-sm outline-none"
+              >{@selected.next_step}</textarea>
             </form>
+
+            <div class="grid grid-cols-2 gap-2">
+              <form phx-change="set_status" id="quick-status">
+                <.input
+                  type="select"
+                  id="quick-status-select"
+                  name="status"
+                  label="Status"
+                  value={@selected.status}
+                  options={status_options()}
+                />
+              </form>
+
+              <form phx-change="set_priority" id="quick-priority">
+                <.input
+                  type="select"
+                  id="quick-priority-select"
+                  name="priority"
+                  label="Priority"
+                  value={@selected.priority}
+                  options={priority_options()}
+                />
+              </form>
+            </div>
 
             <div class="space-y-2">
               <h3 class="text-base-content/60 text-xs font-semibold tracking-wide uppercase">
