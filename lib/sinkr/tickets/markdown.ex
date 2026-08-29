@@ -10,19 +10,23 @@ defmodule Sinkr.Tickets.Markdown do
   disk, and what keeps every consumer rendering identically.
   """
 
+  alias Sinkr.Tickets.Comment
   alias Sinkr.Tickets.Sinker
   alias Sinkr.Tickets.Ticket
 
   @doc """
-  Turns a ticket and its file entries into markdown.
+  Turns a ticket, its comments, and its file entries into markdown — in that
+  order, which is also the order the arguments come in.
 
-  Each entry is `%{sinker:, status:, snapshot_path:}` — see
-  `Sinkr.Tickets.file_entries/1` for how those are built. The one property
-  worth protecting: every file line ends in a path something can `Read`, even
-  the lines for a file that's gone.
+  Comments arrive newest first (`Sinkr.Tickets.list_comments/1`) and are
+  printed that way: the top line is where you left off. Each entry is
+  `%{sinker:, status:, snapshot_path:}` — see `Sinkr.Tickets.file_entries/1`
+  for how those are built. The one property worth protecting: every file
+  line ends in a path something can `Read`, even the lines for a file
+  that's gone.
   """
-  def render(%Ticket{} = ticket, entries) do
-    [header(ticket), fields(ticket), next_step(ticket), files(entries)]
+  def render(%Ticket{} = ticket, comments, entries) do
+    [header(ticket), fields(ticket), comments(comments), files(entries)]
     |> Enum.reject(&is_nil/1)
     |> Enum.join("\n\n")
     |> Kernel.<>("\n")
@@ -35,15 +39,20 @@ defmodule Sinkr.Tickets.Markdown do
       "Priority: #{Ticket.priority_label(ticket.priority)} (P#{ticket.priority})"
   end
 
-  defp next_step(%Ticket{next_step: nil}), do: nil
-  defp next_step(%Ticket{next_step: next_step}), do: "Next step: #{next_step}"
-
   # No heading for an empty list, same precedent as `Tickets.group_by_status/1`
-  # — an empty section is noise, not information.
+  # — an empty section is noise, not information. Same rule for files below.
+  defp comments([]), do: nil
+
+  defp comments(comments) do
+    Enum.join(["## Comments\n" | Enum.map(comments, &comment_line/1)], "\n")
+  end
+
+  defp comment_line(%Comment{body: body} = comment), do: "- #{Comment.stamp(comment)} — #{body}"
+
   defp files([]), do: nil
 
   defp files(entries) do
-    Enum.join(["## Files" | Enum.map(entries, &file_line/1)], "\n")
+    Enum.join(["## Files\n" | Enum.map(entries, &file_line/1)], "\n")
   end
 
   defp file_line(%{sinker: sinker, status: status, snapshot_path: snapshot_path}) do

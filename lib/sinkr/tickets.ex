@@ -7,6 +7,7 @@ defmodule Sinkr.Tickets do
 
   alias Sinkr.Repo
   alias Sinkr.SnapshotStore
+  alias Sinkr.Tickets.Comment
   alias Sinkr.Tickets.Sinker
   alias Sinkr.Tickets.Snapshot
   alias Sinkr.Tickets.Ticket
@@ -71,6 +72,30 @@ defmodule Sinkr.Tickets do
 
     Enum.sort_by(tickets, fn t -> {t.priority, Map.fetch!(status_index, t.status)} end)
   end
+
+  @doc "Leaves a note on the ticket. A blank one is refused."
+  def add_comment(%Ticket{} = ticket, attrs) do
+    %Comment{ticket_id: ticket.id}
+    |> Comment.changeset(attrs)
+    |> Repo.insert()
+  end
+
+  @doc """
+  Every comment on a ticket, newest first — the top one is where you are now.
+  """
+  def list_comments(%Ticket{} = ticket) do
+    Repo.all(
+      from c in Comment,
+        where: c.ticket_id == ^ticket.id,
+        order_by: [desc: c.inserted_at, desc: c.id]
+    )
+  end
+
+  @doc "Takes a comment off its ticket — for the one that landed on the wrong ticket."
+  def delete_comment(%Comment{} = comment), do: Repo.delete(comment)
+
+  @doc "Finds a comment by id."
+  def get_comment!(id), do: Repo.get!(Comment, id)
 
   @doc """
   Points the ticket at a file already sitting on disk.

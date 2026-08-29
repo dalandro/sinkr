@@ -25,9 +25,10 @@ defmodule Sinkr.CLITest do
       Tickets.create_ticket(%{
         title: "Validator rejects arrays",
         category: :bug,
-        status: :active,
-        next_step: "make the scalar check reject arrays"
+        status: :active
       })
+
+    {:ok, _comment} = Tickets.add_comment(ticket, %{body: "make the scalar check reject arrays"})
 
     %{ticket: ticket, ref: "s-#{ticket.id}", dir: tmp_dir}
   end

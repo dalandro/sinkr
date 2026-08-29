@@ -30,8 +30,9 @@ defmodule Sinkr.CLI do
   """
   def run(["show", ref]) do
     ticket = Tickets.get_ticket_by_ref!(ref)
+    comments = Tickets.list_comments(ticket)
     entries = Tickets.file_entries(ticket)
-    {:ok, Markdown.render(ticket, entries)}
+    {:ok, Markdown.render(ticket, comments, entries)}
   rescue
     Ecto.NoResultsError -> {:error, "No ticket for #{ref}"}
   end

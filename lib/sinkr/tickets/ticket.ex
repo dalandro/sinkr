@@ -2,6 +2,10 @@ defmodule Sinkr.Tickets.Ticket do
   @moduledoc """
   A loose end worth coming back to.
 
+  A ticket is shallow on purpose — a title and a handful of fields. The
+  running story of it lives in its comments (`Sinkr.Tickets.Comment`), and
+  where the work itself lives is its sinkers (`Sinkr.Tickets.Sinker`).
+
   `status` is yours and yours alone — set by hand, and nothing in the app may
   move it on your behalf.
   """
@@ -29,7 +33,6 @@ defmodule Sinkr.Tickets.Ticket do
     field :category, Ecto.Enum, values: @categories
     field :status, Ecto.Enum, values: @statuses, default: :queued
     field :priority, :integer, default: 2
-    field :next_step, :string
 
     timestamps(type: :utc_datetime)
   end
@@ -65,7 +68,7 @@ defmodule Sinkr.Tickets.Ticket do
 
   def changeset(ticket, attrs) do
     ticket
-    |> cast(attrs, [:title, :category, :status, :priority, :next_step])
+    |> cast(attrs, [:title, :category, :status, :priority])
     |> validate_required([:title, :category])
     |> validate_inclusion(:priority, Enum.map(@priorities, &elem(&1, 0)))
   end

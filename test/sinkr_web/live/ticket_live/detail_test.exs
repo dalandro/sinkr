@@ -1,7 +1,7 @@
 defmodule SinkrWeb.TicketLive.DetailTest do
   @moduledoc """
   Inline editing on the detail pane: the fields you touch mid-flow — status,
-  priority, next step — change in place. The Edit form is for the rest.
+  priority, comments — change in place. The Edit form is for the rest.
   """
 
   use SinkrWeb.ConnCase
@@ -31,16 +31,38 @@ defmodule SinkrWeb.TicketLive.DetailTest do
     assert html =~ "P0"
   end
 
-  test "next step edits in place and sticks", %{conn: conn, path: path, ticket: ticket} do
+  test "a comment left on the pane lands at the top of the log and sticks", %{
+    conn: conn,
+    path: path,
+    ticket: ticket
+  } do
+    {:ok, _} = Tickets.add_comment(ticket, %{body: "Repro: open week 34 in Safari"})
     {:ok, live, _html} = live(conn, path)
 
     html =
       live
-      |> form("#next-step", %{"next_step" => "Call Bob about the fixture"})
-      |> render_change()
+      |> form("#new-comment", %{"comment" => %{"body" => "Call Bob about the fixture"}})
+      |> render_submit()
 
-    assert Tickets.get_ticket_by_ref!("s-#{ticket.id}").next_step == "Call Bob about the fixture"
+    assert ["Call Bob about the fixture", "Repro: open week 34 in Safari"] =
+             ticket |> Tickets.list_comments() |> Enum.map(& &1.body)
+
     assert html =~ "Call Bob about the fixture"
+    assert html =~ "Saved."
+    # Newest on top: the new comment is rendered before the older one.
+    {bob, _} = :binary.match(html, "Call Bob about the fixture")
+    {repro, _} = :binary.match(html, "Repro: open week 34 in Safari")
+    assert bob < repro
+  end
+
+  test "a comment can be taken off the ticket", %{conn: conn, path: path, ticket: ticket} do
+    {:ok, comment} = Tickets.add_comment(ticket, %{body: "wrong ticket, ignore"})
+    {:ok, live, _html} = live(conn, path)
+
+    html = live |> element("#comment-#{comment.id} button", "Remove") |> render_click()
+
+    assert Tickets.list_comments(ticket) == []
+    refute html =~ "wrong ticket, ignore"
   end
 
   test "saving the edit form says so", %{conn: conn, path: path} do
@@ -70,12 +92,9 @@ defmodule SinkrWeb.TicketLive.DetailTest do
     refute render(live) =~ "Saved."
   end
 
-  test "a ticket without a next step invites one instead of hiding the field", %{
-    conn: conn,
-    path: path
-  } do
+  test "a ticket without comments invites the first one", %{conn: conn, path: path} do
     {:ok, live, _html} = live(conn, path)
 
-    assert has_element?(live, "#next-step textarea[placeholder]")
+    assert has_element?(live, "#new-comment textarea[placeholder]")
   end
 end

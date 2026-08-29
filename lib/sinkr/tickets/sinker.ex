@@ -2,10 +2,10 @@ defmodule Sinkr.Tickets.Sinker do
   @moduledoc """
   A ticket's optional link down to where the work actually lives.
 
-  A ticket is shallow — a title, a next step. A sinker is what drops you back
-  to the real thing a week later: a script, a screenshot, a log. This slice
-  only knows one kind, `:file`; `type` is a row rather than a column so later
-  kinds (`:worktree`, `:herdr_space`, ...) are an insert, not a migration.
+  A ticket is shallow — a title, some comments. A sinker is what drops you
+  back to the real thing a week later: a script, a screenshot, a log. This
+  slice only knows one kind, `:file`; `type` is a row rather than a column so
+  later kinds (`:worktree`, ...) are an insert, not a migration.
 
   `origin` earns its own field rather than being inferred from `value`: a
   dropped file arrives with a filename and nothing else, no directory it can

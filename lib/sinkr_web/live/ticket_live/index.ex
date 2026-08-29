@@ -11,6 +11,7 @@ defmodule SinkrWeb.TicketLive.Index do
   use SinkrWeb, :live_view
 
   alias Sinkr.Tickets
+  alias Sinkr.Tickets.Comment
   alias Sinkr.Tickets.Sinker
   alias Sinkr.Tickets.Snapshot
   alias Sinkr.Tickets.Ticket
@@ -45,6 +46,7 @@ defmodule SinkrWeb.TicketLive.Index do
 
     socket
     |> assign(selected: ticket, editing: nil, form: nil)
+    |> load_comments()
     |> load_file_entries()
     # Folded is the arrival default for a crowd of files; decided once per
     # ticket-open so attaching another file can't yank the section shut
@@ -114,10 +116,17 @@ defmodule SinkrWeb.TicketLive.Index do
      socket |> assign(selected: updated) |> load_tickets() |> flash_then_clear("Saved.")}
   end
 
-  def handle_event("set_next_step", %{"next_step" => next_step}, socket) do
-    {:ok, updated} = Tickets.update_ticket(socket.assigns.selected, %{next_step: next_step})
+  def handle_event("add_comment", %{"comment" => params}, socket) do
+    case Tickets.add_comment(socket.assigns.selected, params) do
+      {:ok, _comment} -> {:noreply, socket |> load_comments() |> flash_then_clear("Saved.")}
+      {:error, _changeset} -> {:noreply, socket}
+    end
+  end
 
-    {:noreply, socket |> assign(selected: updated) |> flash_then_clear("Saved.")}
+  def handle_event("delete_comment", %{"id" => id}, socket) do
+    {:ok, _comment} = Tickets.delete_comment(Tickets.get_comment!(id))
+
+    {:noreply, load_comments(socket)}
   end
 
   def handle_event("delete", _params, socket) do
@@ -254,6 +263,15 @@ defmodule SinkrWeb.TicketLive.Index do
   defp merge_flag(flags, "show_done", "false"), do: %{flags | show_done: false}
   defp merge_flag(flags, _flag, _to), do: flags
 
+  # A fresh, empty composer every time: after a comment lands, the textarea
+  # clears itself because the form it renders from is new.
+  defp load_comments(socket) do
+    assign(socket,
+      comments: Tickets.list_comments(socket.assigns.selected),
+      comment_form: to_form(%{"body" => ""}, as: :comment)
+    )
+  end
+
   defp load_file_entries(socket) do
     assign(socket, file_entries: Tickets.file_entries(socket.assigns.selected))
   end
@@ -382,13 +400,6 @@ defmodule SinkrWeb.TicketLive.Index do
                 label="Priority"
                 options={priority_options()}
               />
-              <.input
-                field={@form[:next_step]}
-                type="textarea"
-                label="Next step"
-                rows="3"
-                placeholder="What's the next thing you'd do?"
-              />
 
               <div class="flex gap-2 pt-3">
                 <.button variant="primary" phx-disable-with="Saving…">Save</.button>
@@ -406,15 +417,39 @@ defmodule SinkrWeb.TicketLive.Index do
               )}
             </p>
 
-            <form phx-change="set_next_step" id="next-step">
+            <.form for={@comment_form} id="new-comment" phx-submit="add_comment" class="space-y-1">
               <textarea
-                name="next_step"
+                name={@comment_form[:body].name}
                 rows="2"
-                phx-debounce="blur"
-                placeholder="What's the next thing you'd do?"
+                placeholder="What did you find? What's next?"
                 class="border-warning bg-warning/10 focus:bg-warning/20 w-full resize-none rounded border-l-2 py-2 pl-3 text-sm outline-none"
-              >{@selected.next_step}</textarea>
-            </form>
+              >{Phoenix.HTML.Form.normalize_value("textarea", @comment_form[:body].value)}</textarea>
+              <div class="flex justify-end">
+                <button type="submit" class="btn btn-xs">Add comment</button>
+              </div>
+            </.form>
+
+            <ol id="comments" class="space-y-2">
+              <li
+                :for={comment <- @comments}
+                id={"comment-#{comment.id}"}
+                class="border-base-300 border-l-2 pl-3"
+              >
+                <p class="text-sm whitespace-pre-wrap">{comment.body}</p>
+                <div class="text-base-content/60 flex items-center justify-between text-xs">
+                  <span>{Comment.stamp(comment)}</span>
+                  <button
+                    type="button"
+                    phx-click="delete_comment"
+                    phx-value-id={comment.id}
+                    data-confirm="Take this comment off the ticket?"
+                    class="btn btn-xs btn-ghost"
+                  >
+                    Remove
+                  </button>
+                </div>
+              </li>
+            </ol>
 
             <div class="grid grid-cols-2 gap-2">
               <form phx-change="set_status" id="quick-status">

@@ -77,6 +77,35 @@ defmodule Sinkr.TicketsTest do
     end
   end
 
+  describe "add_comment/2" do
+    test "comments are listed on their ticket, newest first" do
+      {:ok, ticket} = Tickets.create_ticket(%{title: "Planner won't load", category: :bug})
+
+      {:ok, _first} = Tickets.add_comment(ticket, %{body: "Repro: open week 34 in Safari"})
+      {:ok, _second} = Tickets.add_comment(ticket, %{body: "Next: bisect the serializer"})
+
+      assert ["Next: bisect the serializer", "Repro: open week 34 in Safari"] =
+               ticket |> Tickets.list_comments() |> Enum.map(& &1.body)
+    end
+
+    test "a blank comment is refused" do
+      {:ok, ticket} = Tickets.create_ticket(%{title: "Planner won't load", category: :bug})
+
+      assert {:error, %Ecto.Changeset{}} = Tickets.add_comment(ticket, %{body: "   "})
+    end
+  end
+
+  describe "delete_comment/1" do
+    test "a deleted comment leaves the ticket's log" do
+      {:ok, ticket} = Tickets.create_ticket(%{title: "Planner won't load", category: :bug})
+      {:ok, comment} = Tickets.add_comment(ticket, %{body: "wrong ticket, ignore"})
+
+      {:ok, _} = Tickets.delete_comment(comment)
+
+      assert Tickets.list_comments(ticket) == []
+    end
+  end
+
   describe "delete_ticket/1" do
     test "a deleted ticket leaves the list" do
       {:ok, ticket} = Tickets.create_ticket(%{title: "Never mind", category: :idea})

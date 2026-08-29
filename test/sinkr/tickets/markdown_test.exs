@@ -8,6 +8,7 @@ defmodule Sinkr.Tickets.MarkdownTest do
   # Rendering is pure: no repo, no filesystem, no clock.
   use ExUnit.Case, async: true
 
+  alias Sinkr.Tickets.Comment
   alias Sinkr.Tickets.Markdown
   alias Sinkr.Tickets.Sinker
   alias Sinkr.Tickets.Snapshot
@@ -18,33 +19,48 @@ defmodule Sinkr.Tickets.MarkdownTest do
     title: "Validator rejects arrays",
     category: :bug,
     status: :active,
-    priority: 1,
-    next_step: "make the scalar check reject arrays"
+    priority: 1
   }
+
+  @comments [
+    %Comment{
+      body: "make the scalar check reject arrays",
+      inserted_at: ~U[2026-08-29 14:03:00Z]
+    },
+    %Comment{
+      body: "repro: POST a list where the schema says string",
+      inserted_at: ~U[2026-08-28 09:10:00Z]
+    }
+  ]
 
   describe "render/2" do
     test "leads with the ref and title, then the fields worth knowing" do
-      assert Markdown.render(@ticket, []) == """
+      assert Markdown.render(@ticket, [], []) == """
              # s-16 — Validator rejects arrays
 
              Status: active · Category: bug · Priority: This week (P1)
-
-             Next step: make the scalar check reject arrays
              """
     end
 
-    test "a ticket with no next step doesn't claim to have one" do
-      output = Markdown.render(%{@ticket | next_step: nil}, [])
+    test "comments come newest first, each stamped with when it was left" do
+      assert Markdown.render(@ticket, @comments, []) =~ """
+             ## Comments
 
-      refute output =~ "Next step"
+             - 2026-08-29 14:03 — make the scalar check reject arrays
+             - 2026-08-28 09:10 — repro: POST a list where the schema says string
+             """
+    end
+
+    test "a ticket with no comments has no comments heading" do
+      refute Markdown.render(@ticket, [], []) =~ "## Comments"
     end
 
     test "a ticket with no files has no files heading" do
-      refute Markdown.render(@ticket, []) =~ "## Files"
+      refute Markdown.render(@ticket, [], []) =~ "## Files"
     end
 
     test "a file that's still where you left it is listed as its path" do
-      output = Markdown.render(@ticket, [on_disk("/home/dc/skillz/ci/validate.mjs")])
+      output = Markdown.render(@ticket, [], [on_disk("/home/dc/skillz/ci/validate.mjs")])
 
       assert output =~ "## Files"
       assert output =~ "- /home/dc/skillz/ci/validate.mjs\n"
@@ -52,7 +68,7 @@ defmodule Sinkr.Tickets.MarkdownTest do
 
     test "a pinned file offers the copy alongside the original" do
       output =
-        Markdown.render(@ticket, [
+        Markdown.render(@ticket, [], [
           on_disk("/home/dc/skillz/ci/validate.mjs", pinned: "/store/ab/cdef")
         ])
 
@@ -60,26 +76,26 @@ defmodule Sinkr.Tickets.MarkdownTest do
     end
 
     test "a file that's gone says so, and points at what survived it" do
-      output = Markdown.render(@ticket, [missing("/tmp/run.log", pinned: "/store/ef/1234")])
+      output = Markdown.render(@ticket, [], [missing("/tmp/run.log", pinned: "/store/ef/1234")])
 
       assert output =~ "- /tmp/run.log — MISSING; pinned copy: /store/ef/1234\n"
     end
 
     test "a file that's gone with nothing kept says that too, rather than a dead path" do
-      output = Markdown.render(@ticket, [missing("/tmp/run.log")])
+      output = Markdown.render(@ticket, [], [missing("/tmp/run.log")])
 
       assert output =~ "- /tmp/run.log — MISSING; no copy was kept\n"
     end
 
     test "a dropped file is listed by name, and resolves to the copy" do
-      output = Markdown.render(@ticket, [upload("Screenshot.png", pinned: "/store/12/3456")])
+      output = Markdown.render(@ticket, [], [upload("Screenshot.png", pinned: "/store/12/3456")])
 
       assert output =~ "- Screenshot.png — pinned copy: /store/12/3456\n"
     end
 
     test "every file line ends in a path something can read" do
       output =
-        Markdown.render(@ticket, [
+        Markdown.render(@ticket, [], [
           on_disk("/home/dc/live.mjs"),
           on_disk("/home/dc/also-live.mjs", pinned: "/store/aa/1111"),
           missing("/tmp/gone.log", pinned: "/store/bb/2222"),
