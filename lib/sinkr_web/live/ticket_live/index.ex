@@ -123,6 +123,29 @@ defmodule SinkrWeb.TicketLive.Index do
     end
   end
 
+  def handle_event("edit_comment", %{"id" => id}, socket) do
+    comment = Tickets.get_comment!(id)
+
+    {:noreply,
+     assign(socket,
+       editing_comment: comment.id,
+       comment_edit_form: to_form(%{"body" => comment.body}, as: :comment)
+     )}
+  end
+
+  def handle_event("cancel_edit_comment", _params, socket) do
+    {:noreply, assign(socket, editing_comment: nil, comment_edit_form: nil)}
+  end
+
+  def handle_event("update_comment", %{"comment" => params}, socket) do
+    comment = Tickets.get_comment!(socket.assigns.editing_comment)
+
+    case Tickets.update_comment(comment, params) do
+      {:ok, _comment} -> {:noreply, socket |> load_comments() |> flash_then_clear("Saved.")}
+      {:error, _changeset} -> {:noreply, socket}
+    end
+  end
+
   def handle_event("delete_comment", %{"id" => id}, socket) do
     {:ok, _comment} = Tickets.delete_comment(Tickets.get_comment!(id))
 
@@ -264,11 +287,14 @@ defmodule SinkrWeb.TicketLive.Index do
   defp merge_flag(flags, _flag, _to), do: flags
 
   # A fresh, empty composer every time: after a comment lands, the textarea
-  # clears itself because the form it renders from is new.
+  # clears itself because the form it renders from is new. Any in-progress
+  # edit closes too — a reload means the log changed under it.
   defp load_comments(socket) do
     assign(socket,
       comments: Tickets.list_comments(socket.assigns.selected),
-      comment_form: to_form(%{"body" => ""}, as: :comment)
+      comment_form: to_form(%{"body" => ""}, as: :comment),
+      editing_comment: nil,
+      comment_edit_form: nil
     )
   end
 
@@ -435,18 +461,55 @@ defmodule SinkrWeb.TicketLive.Index do
                 id={"comment-#{comment.id}"}
                 class="border-base-300 border-l-2 pl-3"
               >
-                <p class="text-sm whitespace-pre-wrap">{comment.body}</p>
-                <div class="text-base-content/60 flex items-center justify-between text-xs">
-                  <span>{Comment.stamp(comment)}</span>
-                  <button
-                    type="button"
-                    phx-click="delete_comment"
-                    phx-value-id={comment.id}
-                    data-confirm="Take this comment off the ticket?"
-                    class="btn btn-xs btn-ghost"
-                  >
-                    Remove
-                  </button>
+                <.form
+                  :if={@editing_comment == comment.id}
+                  for={@comment_edit_form}
+                  id={"edit-comment-#{comment.id}"}
+                  phx-submit="update_comment"
+                  class="space-y-1"
+                >
+                  <textarea
+                    name={@comment_edit_form[:body].name}
+                    rows="3"
+                    class="border-warning bg-warning/10 focus:bg-warning/20 w-full resize-none rounded border-l-2 py-2 pl-3 text-sm outline-none"
+                  >{Phoenix.HTML.Form.normalize_value("textarea", @comment_edit_form[:body].value)}</textarea>
+                  <div class="flex justify-end gap-1">
+                    <button type="button" phx-click="cancel_edit_comment" class="btn btn-xs btn-ghost">
+                      Cancel
+                    </button>
+                    <button type="submit" class="btn btn-xs">Save</button>
+                  </div>
+                </.form>
+
+                <div :if={@editing_comment != comment.id}>
+                  <p class="text-sm whitespace-pre-wrap">{comment.body}</p>
+                  <div class="text-base-content/60 flex items-center justify-between text-xs">
+                    <span>
+                      {Comment.stamp(comment)}
+                      <span :if={Comment.edited?(comment)}>
+                        · edited {Comment.edited_stamp(comment)}
+                      </span>
+                    </span>
+                    <div class="flex gap-1">
+                      <button
+                        type="button"
+                        phx-click="edit_comment"
+                        phx-value-id={comment.id}
+                        class="btn btn-xs btn-ghost"
+                      >
+                        Edit
+                      </button>
+                      <button
+                        type="button"
+                        phx-click="delete_comment"
+                        phx-value-id={comment.id}
+                        data-confirm="Take this comment off the ticket?"
+                        class="btn btn-xs btn-ghost"
+                      >
+                        Remove
+                      </button>
+                    </div>
+                  </div>
                 </div>
               </li>
             </ol>

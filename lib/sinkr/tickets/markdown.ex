@@ -47,7 +47,13 @@ defmodule Sinkr.Tickets.Markdown do
     Enum.join(["## Comments\n" | Enum.map(comments, &comment_line/1)], "\n")
   end
 
-  defp comment_line(%Comment{body: body} = comment), do: "- #{Comment.stamp(comment)} — #{body}"
+  defp comment_line(%Comment{body: body} = comment) do
+    "- #{Comment.stamp(comment)} — #{body}" <> edited(comment)
+  end
+
+  defp edited(comment) do
+    if Comment.edited?(comment), do: " (edited #{Comment.edited_stamp(comment)})", else: ""
+  end
 
   defp files([]), do: nil
 

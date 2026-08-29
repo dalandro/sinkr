@@ -55,6 +55,45 @@ defmodule SinkrWeb.TicketLive.DetailTest do
     assert bob < repro
   end
 
+  test "a comment can be edited in place, and then says it was", %{
+    conn: conn,
+    path: path,
+    ticket: ticket
+  } do
+    {:ok, comment} = Tickets.add_comment(ticket, %{body: "Repro: open week 34 in Safri"})
+    {:ok, live, html} = live(conn, path)
+
+    refute html =~ "edited"
+
+    live |> element("#comment-#{comment.id} button", "Edit") |> render_click()
+
+    html =
+      live
+      |> form("#edit-comment-#{comment.id}", %{
+        "comment" => %{"body" => "Repro: open week 34 in Safari"}
+      })
+      |> render_submit()
+
+    assert [%{body: "Repro: open week 34 in Safari"}] = Tickets.list_comments(ticket)
+    assert html =~ "Repro: open week 34 in Safari"
+    assert html =~ "edited"
+    assert html =~ "Saved."
+    refute has_element?(live, "#edit-comment-#{comment.id}")
+  end
+
+  test "editing a comment can be backed out of", %{conn: conn, path: path, ticket: ticket} do
+    {:ok, comment} = Tickets.add_comment(ticket, %{body: "leave me be"})
+    {:ok, live, _html} = live(conn, path)
+
+    live |> element("#comment-#{comment.id} button", "Edit") |> render_click()
+    assert has_element?(live, "#edit-comment-#{comment.id}")
+
+    live |> element("#edit-comment-#{comment.id} button", "Cancel") |> render_click()
+
+    refute has_element?(live, "#edit-comment-#{comment.id}")
+    assert [%{body: "leave me be", edited_at: nil}] = Tickets.list_comments(ticket)
+  end
+
   test "a comment can be taken off the ticket", %{conn: conn, path: path, ticket: ticket} do
     {:ok, comment} = Tickets.add_comment(ticket, %{body: "wrong ticket, ignore"})
     {:ok, live, _html} = live(conn, path)

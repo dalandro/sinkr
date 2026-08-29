@@ -51,6 +51,14 @@ defmodule Sinkr.Tickets.MarkdownTest do
              """
     end
 
+    test "an edited comment says so, and when" do
+      [latest | _] = @comments
+      edited = %{latest | edited_at: ~U[2026-08-29 15:20:00Z]}
+
+      assert Markdown.render(@ticket, [edited], []) =~
+               "- 2026-08-29 14:03 — make the scalar check reject arrays (edited 2026-08-29 15:20)"
+    end
+
     test "a ticket with no comments has no comments heading" do
       refute Markdown.render(@ticket, [], []) =~ "## Comments"
     end

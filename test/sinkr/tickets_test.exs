@@ -2,6 +2,7 @@ defmodule Sinkr.TicketsTest do
   use Sinkr.DataCase
 
   alias Sinkr.Tickets
+  alias Sinkr.Tickets.Comment
   alias Sinkr.Tickets.Ticket
 
   describe "group_by_status/1" do
@@ -92,6 +93,28 @@ defmodule Sinkr.TicketsTest do
       {:ok, ticket} = Tickets.create_ticket(%{title: "Planner won't load", category: :bug})
 
       assert {:error, %Ecto.Changeset{}} = Tickets.add_comment(ticket, %{body: "   "})
+    end
+  end
+
+  describe "update_comment/2" do
+    test "an edited comment keeps its place but says it was edited" do
+      {:ok, ticket} = Tickets.create_ticket(%{title: "Planner won't load", category: :bug})
+      {:ok, comment} = Tickets.add_comment(ticket, %{body: "Repro: open week 34 in Safri"})
+
+      refute Comment.edited?(comment)
+
+      {:ok, updated} = Tickets.update_comment(comment, %{body: "Repro: open week 34 in Safari"})
+
+      assert updated.body == "Repro: open week 34 in Safari"
+      assert Comment.edited?(updated)
+      assert [%Comment{body: "Repro: open week 34 in Safari"}] = Tickets.list_comments(ticket)
+    end
+
+    test "editing a comment down to nothing is refused" do
+      {:ok, ticket} = Tickets.create_ticket(%{title: "Planner won't load", category: :bug})
+      {:ok, comment} = Tickets.add_comment(ticket, %{body: "keep me"})
+
+      assert {:error, %Ecto.Changeset{}} = Tickets.update_comment(comment, %{body: ""})
     end
   end
 

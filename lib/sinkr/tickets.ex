@@ -91,6 +91,13 @@ defmodule Sinkr.Tickets do
     )
   end
 
+  @doc "Changes what a comment says. It's marked edited from then on; a blank body is refused."
+  def update_comment(%Comment{} = comment, attrs) do
+    comment
+    |> Comment.edit_changeset(attrs)
+    |> Repo.update()
+  end
+
   @doc "Takes a comment off its ticket — for the one that landed on the wrong ticket."
   def delete_comment(%Comment{} = comment), do: Repo.delete(comment)
 
