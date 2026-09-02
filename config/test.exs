@@ -13,6 +13,9 @@ config :sinkr, Sinkr.Repo,
 # Belt-and-braces default: every test overrides this with its own @tag
 # :tmp_dir, but nothing in the suite should be able to reach the real store
 # just because a test forgot to.
+# Tests that want a herdr poller start their own, with a lister they control.
+config :sinkr, :start_herdr_poller, false
+
 config :sinkr, :snapshot_root, Path.join(System.tmp_dir!(), "sinkr_test_snapshots")
 
 # We don't run a server during test. If one is required,

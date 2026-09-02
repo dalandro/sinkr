@@ -7,18 +7,17 @@ defmodule Sinkr.Application do
 
   @impl true
   def start(_type, _args) do
-    children = [
-      SinkrWeb.Telemetry,
-      Sinkr.Repo,
-      {Ecto.Migrator,
-       repos: Application.fetch_env!(:sinkr, :ecto_repos), skip: skip_migrations?()},
-      {DNSCluster, query: Application.get_env(:sinkr, :dns_cluster_query) || :ignore},
-      {Phoenix.PubSub, name: Sinkr.PubSub},
-      # Start a worker by calling: Sinkr.Worker.start_link(arg)
-      # {Sinkr.Worker, arg},
-      # Start to serve requests, typically the last entry
-      SinkrWeb.Endpoint
-    ]
+    children =
+      [
+        SinkrWeb.Telemetry,
+        Sinkr.Repo,
+        {Ecto.Migrator,
+         repos: Application.fetch_env!(:sinkr, :ecto_repos), skip: skip_migrations?()},
+        {DNSCluster, query: Application.get_env(:sinkr, :dns_cluster_query) || :ignore},
+        {Phoenix.PubSub, name: Sinkr.PubSub},
+        # Start to serve requests, typically the last entry
+        SinkrWeb.Endpoint
+      ] ++ herdr_poller()
 
     # See https://elixir.hexdocs.pm/Supervisor.html
     # for other strategies and supported options
@@ -32,6 +31,16 @@ defmodule Sinkr.Application do
   def config_change(changed, _new, removed) do
     SinkrWeb.Endpoint.config_change(changed, removed)
     :ok
+  end
+
+  # Off in test only: tests that want a poller start their own, with a lister
+  # they control, instead of one loose polling the real CLI mid-suite.
+  defp herdr_poller do
+    if Application.get_env(:sinkr, :start_herdr_poller, true) do
+      [{Sinkr.Herdr.Poller, name: Sinkr.Herdr.Poller}]
+    else
+      []
+    end
   end
 
   defp skip_migrations?() do

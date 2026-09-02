@@ -10,6 +10,7 @@ defmodule SinkrWeb.TicketLive.Index do
 
   use SinkrWeb, :live_view
 
+  alias Sinkr.Herdr
   alias Sinkr.Tickets
   alias Sinkr.Tickets.Comment
   alias Sinkr.Tickets.Sinker
@@ -20,9 +21,14 @@ defmodule SinkrWeb.TicketLive.Index do
   def mount(_params, _session, socket) do
     flags = parse_flags(get_connect_params(socket)["flags"])
 
+    # Presence rides PubSub from the poller; the static render and any
+    # in-between mount fall back to what the poller last saw. The herdr cog
+    # flag never reaches here — hiding chips doesn't stop the ears.
+    if connected?(socket), do: Herdr.subscribe()
+
     {:ok,
      socket
-     |> assign(category_filter: nil, flags: flags)
+     |> assign(category_filter: nil, flags: flags, workspaces: Herdr.current_workspaces())
      |> load_tickets()
      |> allow_upload(:files,
        accept: :any,
@@ -252,6 +258,10 @@ defmodule SinkrWeb.TicketLive.Index do
   @impl true
   def handle_info(:clear_flash, socket), do: {:noreply, clear_flash(socket)}
 
+  def handle_info({:herdr_workspaces, workspaces}, socket) do
+    {:noreply, assign(socket, workspaces: workspaces)}
+  end
+
   defp load_tickets(socket) do
     all = Tickets.list_tickets()
 
@@ -274,7 +284,7 @@ defmodule SinkrWeb.TicketLive.Index do
   defp filter_by_show_done(tickets, true), do: tickets
   defp filter_by_show_done(tickets, false), do: Enum.reject(tickets, &(&1.status == :done))
 
-  defp default_flags, do: %{layout: :grouped, show_done: true}
+  defp default_flags, do: %{layout: :grouped, show_done: true, herdr: true}
 
   defp parse_flags(flags) when is_map(flags) do
     Enum.reduce(flags, default_flags(), fn {flag, to}, acc -> merge_flag(acc, flag, to) end)
@@ -288,6 +298,8 @@ defmodule SinkrWeb.TicketLive.Index do
   defp merge_flag(flags, "layout", "grouped"), do: %{flags | layout: :grouped}
   defp merge_flag(flags, "show_done", "true"), do: %{flags | show_done: true}
   defp merge_flag(flags, "show_done", "false"), do: %{flags | show_done: false}
+  defp merge_flag(flags, "herdr", "true"), do: %{flags | herdr: true}
+  defp merge_flag(flags, "herdr", "false"), do: %{flags | herdr: false}
   defp merge_flag(flags, _flag, _to), do: flags
 
   # Reloading the log closes any in-progress edit — the log changed under it.
@@ -323,6 +335,18 @@ defmodule SinkrWeb.TicketLive.Index do
   defp priority_options do
     Enum.map(Ticket.priorities(), fn {level, label} -> {"P#{level} — #{label}", level} end)
   end
+
+  # The chip wears the workspace's agent_status; the tones rhyme with
+  # status_tone/1 — working is the green of active, blocked the red of
+  # blocked, idle claims no colour at all.
+  defp presence_tone(:working), do: "badge-success"
+  defp presence_tone(:blocked), do: "badge-error"
+  defp presence_tone(:idle), do: "badge-ghost"
+
+  # An empty list when the flag is off, so the row renders chipless without
+  # owning the flag logic itself.
+  defp presence_for(%{herdr: false}, _ticket, _workspaces), do: []
+  defp presence_for(_flags, ticket, workspaces), do: Herdr.workspaces_for(ticket, workspaces)
 
   defp status_tone(:active), do: "bg-success"
   defp status_tone(:blocked), do: "bg-error"
@@ -397,6 +421,7 @@ defmodule SinkrWeb.TicketLive.Index do
               :for={ticket <- Tickets.sort_by_priority(@visible)}
               ticket={ticket}
               selected={@selected}
+              presence={presence_for(@flags, ticket, @workspaces)}
             />
           </ul>
 
@@ -414,7 +439,12 @@ defmodule SinkrWeb.TicketLive.Index do
             </summary>
 
             <ul class="divide-base-300 divide-y">
-              <.ticket_row :for={ticket <- tickets} ticket={ticket} selected={@selected} />
+              <.ticket_row
+                :for={ticket <- tickets}
+                ticket={ticket}
+                selected={@selected}
+                presence={presence_for(@flags, ticket, @workspaces)}
+              />
             </ul>
           </details>
         </div>
@@ -698,10 +728,11 @@ defmodule SinkrWeb.TicketLive.Index do
   # row either way — only what surrounds it changes.
   attr :ticket, Ticket, required: true
   attr :selected, :any, required: true
+  attr :presence, :list, required: true, doc: "workspaces wearing this ticket's ref right now"
 
   defp ticket_row(assigns) do
     ~H"""
-    <li>
+    <li id={"ticket-#{@ticket.id}"}>
       <.link
         patch={~p"/tickets/#{Ticket.display_ref(@ticket)}"}
         class={[
@@ -712,7 +743,17 @@ defmodule SinkrWeb.TicketLive.Index do
           )
         ]}
       >
-        <span class="block truncate text-sm">{@ticket.title}</span>
+        <span class="flex items-center gap-1.5 text-sm">
+          <span class="truncate">{@ticket.title}</span>
+          <span
+            :for={workspace <- @presence}
+            data-role="presence"
+            title={workspace.label}
+            class={["badge badge-xs shrink-0", presence_tone(workspace.agent_status)]}
+          >
+            {workspace.agent_status}
+          </span>
+        </span>
         <span class="text-base-content/70 text-xs">
           <span title={Ticket.priority_label(@ticket.priority)}>P{@ticket.priority}</span>
           · {Phoenix.Naming.humanize(@ticket.category)}
