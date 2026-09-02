@@ -94,6 +94,51 @@ defmodule SinkrWeb.TicketLive.DetailTest do
     assert [%{body: "leave me be", edited_at: nil}] = Tickets.list_comments(ticket)
   end
 
+  # The composer's textarea is keyed by ticket and by a version that moves on
+  # every landed comment: a new key means a new DOM node, which is what
+  # actually empties the box (a textarea rendering "" both times never
+  # re-patches) and what keeps a half-typed draft from following you to the
+  # next ticket.
+  test "the composer empties after a comment lands and doesn't follow you between tickets", %{
+    conn: conn,
+    path: path,
+    ticket: ticket
+  } do
+    {:ok, other} = Tickets.create_ticket(%{title: "The other one", category: :chore})
+    {:ok, live, html} = live(conn, path)
+
+    [before_key] = Regex.run(~r/new-comment-body-[\w-]+/, html)
+    assert before_key =~ "-#{ticket.id}-"
+
+    html =
+      live
+      |> form("#new-comment", %{"comment" => %{"body" => "note to self"}})
+      |> render_submit()
+
+    [after_key] = Regex.run(~r/new-comment-body-[\w-]+/, html)
+    assert after_key != before_key
+
+    html = render_patch(live, ~p"/tickets/s-#{other.id}")
+    [other_key] = Regex.run(~r/new-comment-body-[\w-]+/, html)
+    assert other_key =~ "-#{other.id}-"
+    assert other_key != after_key
+  end
+
+  test "ctrl+enter submits from the keyboard: both comment boxes carry the hook", %{
+    conn: conn,
+    path: path,
+    ticket: ticket
+  } do
+    {:ok, comment} = Tickets.add_comment(ticket, %{body: "hookable"})
+    {:ok, live, _html} = live(conn, path)
+
+    assert has_element?(live, "#new-comment textarea[phx-hook]")
+
+    live |> element("#comment-#{comment.id} button", "Edit") |> render_click()
+
+    assert has_element?(live, "#edit-comment-#{comment.id} textarea[phx-hook]")
+  end
+
   test "a comment can be taken off the ticket", %{conn: conn, path: path, ticket: ticket} do
     {:ok, comment} = Tickets.add_comment(ticket, %{body: "wrong ticket, ignore"})
     {:ok, live, _html} = live(conn, path)

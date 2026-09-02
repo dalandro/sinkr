@@ -47,6 +47,7 @@ defmodule SinkrWeb.TicketLive.Index do
     socket
     |> assign(selected: ticket, editing: nil, form: nil)
     |> load_comments()
+    |> reset_composer()
     |> load_file_entries()
     # Folded is the arrival default for a crowd of files; decided once per
     # ticket-open so attaching another file can't yank the section shut
@@ -118,8 +119,11 @@ defmodule SinkrWeb.TicketLive.Index do
 
   def handle_event("add_comment", %{"comment" => params}, socket) do
     case Tickets.add_comment(socket.assigns.selected, params) do
-      {:ok, _comment} -> {:noreply, socket |> load_comments() |> flash_then_clear("Saved.")}
-      {:error, _changeset} -> {:noreply, socket}
+      {:ok, _comment} ->
+        {:noreply, socket |> load_comments() |> reset_composer() |> flash_then_clear("Saved.")}
+
+      {:error, _changeset} ->
+        {:noreply, socket}
     end
   end
 
@@ -286,15 +290,26 @@ defmodule SinkrWeb.TicketLive.Index do
   defp merge_flag(flags, "show_done", "false"), do: %{flags | show_done: false}
   defp merge_flag(flags, _flag, _to), do: flags
 
-  # A fresh, empty composer every time: after a comment lands, the textarea
-  # clears itself because the form it renders from is new. Any in-progress
-  # edit closes too — a reload means the log changed under it.
+  # Reloading the log closes any in-progress edit — the log changed under it.
+  # The composer is deliberately NOT touched here: deleting or editing an old
+  # comment shouldn't eat the draft you're typing. Emptying the composer is
+  # `reset_composer/1`, called only when a comment lands or the ticket changes.
   defp load_comments(socket) do
     assign(socket,
       comments: Tickets.list_comments(socket.assigns.selected),
-      comment_form: to_form(%{"body" => ""}, as: :comment),
       editing_comment: nil,
       comment_edit_form: nil
+    )
+  end
+
+  # A textarea whose rendered value is "" before and after never re-patches,
+  # so a fresh form alone leaves typed text sitting there. The version below
+  # keys the textarea's DOM id; a new key is a new node, and a new node is
+  # actually empty.
+  defp reset_composer(socket) do
+    assign(socket,
+      comment_form: to_form(%{"body" => ""}, as: :comment),
+      composer_version: System.unique_integer([:positive, :monotonic])
     )
   end
 
@@ -443,10 +458,25 @@ defmodule SinkrWeb.TicketLive.Index do
               )}
             </p>
 
+            <script :type={Phoenix.LiveView.ColocatedHook} name=".SubmitOnCtrlEnter">
+              export default {
+                mounted() {
+                  this.el.addEventListener("keydown", (e) => {
+                    if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) {
+                      e.preventDefault()
+                      this.el.form.requestSubmit()
+                    }
+                  })
+                }
+              }
+            </script>
+
             <.form for={@comment_form} id="new-comment" phx-submit="add_comment" class="space-y-1">
               <textarea
+                id={"new-comment-body-#{@selected.id}-#{@composer_version}"}
                 name={@comment_form[:body].name}
                 rows="2"
+                phx-hook=".SubmitOnCtrlEnter"
                 placeholder="What did you find? What's next?"
                 class="border-warning bg-warning/10 focus:bg-warning/20 w-full resize-none rounded border-l-2 py-2 pl-3 text-sm outline-none"
               >{Phoenix.HTML.Form.normalize_value("textarea", @comment_form[:body].value)}</textarea>
@@ -469,8 +499,10 @@ defmodule SinkrWeb.TicketLive.Index do
                   class="space-y-1"
                 >
                   <textarea
+                    id={"edit-comment-body-#{comment.id}"}
                     name={@comment_edit_form[:body].name}
                     rows="3"
+                    phx-hook=".SubmitOnCtrlEnter"
                     class="border-warning bg-warning/10 focus:bg-warning/20 w-full resize-none rounded border-l-2 py-2 pl-3 text-sm outline-none"
                   >{Phoenix.HTML.Form.normalize_value("textarea", @comment_edit_form[:body].value)}</textarea>
                   <div class="flex justify-end gap-1">
