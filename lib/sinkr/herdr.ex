@@ -8,6 +8,8 @@ defmodule Sinkr.Herdr do
   link moves with it; nothing here to migrate or un-stick.
   """
 
+  import Ecto.Query, only: [from: 2]
+
   alias Sinkr.Herdr.Episode
   alias Sinkr.Repo
   alias Sinkr.Tickets.Ticket
@@ -64,20 +66,59 @@ defmodule Sinkr.Herdr do
     Phoenix.PubSub.broadcast(Sinkr.PubSub, @herdr_topic, {:herdr_workspaces, workspaces})
   end
 
-  @doc """
-  Asks the herdr CLI what's open right now.
-
-  A machine without herdr on it answers `{:error, :enoent}` like any other
-  broken tick — the dashboard's herdr features go quiet rather than down.
-  """
+  @doc "Asks the herdr CLI what's open right now."
   def list_workspaces do
-    case System.cmd("herdr", ["workspace", "list"], stderr_to_stdout: true) do
-      {output, 0} -> parse_workspaces(output)
-      {output, _status} -> {:error, output}
+    with {:ok, output} <- cli().list_workspaces() do
+      parse_workspaces(output)
     end
-  rescue
-    ErlangError -> {:error, :enoent}
   end
+
+  @doc """
+  Ties an untethered workspace to a ticket, the way every tethered workspace
+  is tied: by its label. The ref goes up front (`s-12 hooks-refactor`), so
+  the convention stays the visible source of truth. Only when herdr refuses
+  the rename does the episode row take a `ticket_id` pin instead — the
+  fallback, never the first choice.
+  """
+  def tether(%Ticket{} = ticket, workspace) do
+    label = "#{Ticket.display_ref(ticket)} #{workspace.label}"
+
+    case cli().rename_workspace(workspace.workspace_id, label) do
+      :ok ->
+        {:ok, :renamed}
+
+      {:error, _reason} ->
+        pin(ticket, workspace)
+        {:ok, :pinned}
+    end
+  end
+
+  @doc "Every pin, as `workspace_id => ticket_id` — the shape the joins take."
+  def pins do
+    Repo.all(from e in Episode, where: not is_nil(e.ticket_id))
+    |> Map.new(&{&1.workspace_id, &1.ticket_id})
+  end
+
+  # The workspace is on screen, so the poller has all but certainly logged
+  # it already — but a tick racing a close is cheap to survive, so this
+  # upserts rather than trusting the row is there.
+  defp pin(ticket, %{workspace_id: workspace_id, label: label}) do
+    now = DateTime.utc_now(:second)
+
+    Repo.insert!(
+      %Episode{
+        workspace_id: workspace_id,
+        label: label,
+        first_seen_at: now,
+        last_seen_at: now,
+        ticket_id: ticket.id
+      },
+      on_conflict: [set: [ticket_id: ticket.id]],
+      conflict_target: :workspace_id
+    )
+  end
+
+  defp cli, do: Application.get_env(:sinkr, :herdr_cli, Sinkr.Herdr.CLI)
 
   @doc """
   Writes down that these workspaces were open at `seen_at`.
@@ -113,10 +154,26 @@ defmodule Sinkr.Herdr do
     :exit, _ -> []
   end
 
-  @doc "Every workspace currently wearing this ticket's ref in its label."
-  def workspaces_for(%Ticket{} = ticket, workspaces) do
+  @doc "Nudges the poller to ask herdr again right now, if one is running."
+  def poll_now, do: Sinkr.Herdr.Poller.poll_now()
+
+  @doc """
+  Every workspace currently tethered to this ticket: wearing its ref in the
+  label, or pinned to it — the fallback for a workspace whose rename was
+  refused. `pins` is `workspace_id => ticket_id`, from `pins/0`.
+  """
+  def workspaces_for(%Ticket{} = ticket, workspaces, pins \\ %{}) do
     ref = Ticket.display_ref(ticket)
 
-    Enum.filter(workspaces, &(ticket_ref(&1.label) == ref))
+    Enum.filter(workspaces, fn workspace ->
+      ticket_ref(workspace.label) == ref or pins[workspace.workspace_id] == ticket.id
+    end)
+  end
+
+  @doc "Workspaces belonging to no ticket at all — no ref in the label, no pin."
+  def untethered(workspaces, pins) do
+    Enum.filter(workspaces, fn workspace ->
+      is_nil(ticket_ref(workspace.label)) and not Map.has_key?(pins, workspace.workspace_id)
+    end)
   end
 end

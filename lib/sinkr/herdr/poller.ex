@@ -29,12 +29,20 @@ defmodule Sinkr.Herdr.Poller do
   @doc "What the last tick saw — for a LiveView mounting between ticks."
   def current(server \\ __MODULE__), do: GenServer.call(server, :current)
 
+  @doc """
+  Asks again right now — for the moment just after a tether, when waiting
+  out the interval would leave a renamed workspace looking stale. A cast, so
+  poking a poller that isn't running (tests) is a shrug, not a crash.
+  """
+  def poll_now(server \\ __MODULE__), do: GenServer.cast(server, :poll)
+
   @impl true
   def init(opts) do
     state = %{
       lister: Keyword.get(opts, :lister, &Herdr.list_workspaces/0),
       interval_ms: Keyword.get(opts, :interval_ms, @default_interval_ms),
-      workspaces: []
+      workspaces: [],
+      timer: nil
     }
 
     send(self(), :poll)
@@ -43,7 +51,15 @@ defmodule Sinkr.Herdr.Poller do
   end
 
   @impl true
-  def handle_info(:poll, state) do
+  def handle_info(:poll, state), do: {:noreply, poll(state)}
+
+  @impl true
+  def handle_cast(:poll, state), do: {:noreply, poll(state)}
+
+  @impl true
+  def handle_call(:current, _from, state), do: {:reply, state.workspaces, state}
+
+  defp poll(state) do
     workspaces =
       case state.lister.() do
         {:ok, workspaces} ->
@@ -55,11 +71,13 @@ defmodule Sinkr.Herdr.Poller do
       end
 
     Herdr.broadcast_workspaces(workspaces)
-    Process.send_after(self(), :poll, state.interval_ms)
 
-    {:noreply, %{state | workspaces: workspaces}}
+    # Every poll re-arms the one timer, cancelling any tick already in
+    # flight — a poll_now between ticks must shift the next tick, not fork
+    # a second chain of them.
+    if state.timer, do: Process.cancel_timer(state.timer)
+    timer = Process.send_after(self(), :poll, state.interval_ms)
+
+    %{state | workspaces: workspaces, timer: timer}
   end
-
-  @impl true
-  def handle_call(:current, _from, state), do: {:reply, state.workspaces, state}
 end

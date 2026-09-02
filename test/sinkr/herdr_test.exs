@@ -57,7 +57,7 @@ defmodule Sinkr.HerdrTest do
     end
   end
 
-  describe "workspaces_for/2" do
+  describe "workspaces_for/3" do
     test "matches a ticket to every workspace wearing its ref" do
       ticket = %Sinkr.Tickets.Ticket{id: 12}
 
@@ -70,6 +70,38 @@ defmodule Sinkr.HerdrTest do
 
       assert [%{workspace_id: "w1"}, %{workspace_id: "w3"}] =
                Herdr.workspaces_for(ticket, workspaces)
+    end
+
+    test "a pinned workspace counts as tethered even with no ref in its label" do
+      # The pin is the fallback for a workspace whose rename was refused.
+      ticket = %Sinkr.Tickets.Ticket{id: 12}
+
+      workspaces = [
+        %{workspace_id: "w2", label: "hooks-refactor", agent_status: :idle},
+        %{workspace_id: "w5", label: "scratch", agent_status: :working}
+      ]
+
+      assert [%{workspace_id: "w5"}] =
+               Herdr.workspaces_for(ticket, workspaces, %{"w5" => 12})
+
+      # A pin to some other ticket is not a pin to this one.
+      assert Herdr.workspaces_for(ticket, workspaces, %{"w5" => 99}) == []
+    end
+  end
+
+  describe "untethered/2" do
+    test "workspaces with no ref and no pin, in list order" do
+      workspaces = [
+        %{workspace_id: "w1", label: "s-12-comments", agent_status: :working},
+        %{workspace_id: "w2", label: "hooks-refactor", agent_status: :idle},
+        %{workspace_id: "w5", label: "scratch", agent_status: :working}
+      ]
+
+      assert [%{workspace_id: "w2"}] =
+               Herdr.untethered(workspaces, %{"w5" => 12})
+
+      assert [%{workspace_id: "w2"}, %{workspace_id: "w5"}] =
+               Herdr.untethered(workspaces, %{})
     end
   end
 end

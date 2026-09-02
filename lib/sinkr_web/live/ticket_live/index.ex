@@ -28,7 +28,12 @@ defmodule SinkrWeb.TicketLive.Index do
 
     {:ok,
      socket
-     |> assign(category_filter: nil, flags: flags, workspaces: Herdr.current_workspaces())
+     |> assign(
+       category_filter: nil,
+       flags: flags,
+       workspaces: Herdr.current_workspaces(),
+       pins: Herdr.pins()
+     )
      |> load_tickets()
      |> allow_upload(:files,
        accept: :any,
@@ -40,6 +45,10 @@ defmodule SinkrWeb.TicketLive.Index do
 
   @impl true
   def handle_params(params, _uri, socket) do
+    # Cleared on every navigation; only apply_action(:new, ...) sets it, and
+    # only for the visit that arrived via the strip's "Make ticket".
+    socket = assign(socket, tether_workspace: nil)
+
     {:noreply, apply_action(socket, socket.assigns.live_action, params)}
   end
 
@@ -61,8 +70,16 @@ defmodule SinkrWeb.TicketLive.Index do
     |> then(&assign(&1, files_open: length(&1.assigns.file_entries) <= 1))
   end
 
-  defp apply_action(socket, :new, _params) do
-    open_form(socket, %Ticket{}, nil)
+  # The strip's "Make ticket" arrives here carrying the workspace's label as
+  # the title and the workspace itself to tether once the ticket exists. A
+  # workspace that closed in the meantime just means a plain new-ticket form.
+  defp apply_action(socket, :new, params) do
+    workspace =
+      Enum.find(socket.assigns.workspaces, &(&1.workspace_id == params["workspace"]))
+
+    socket
+    |> assign(tether_workspace: workspace)
+    |> open_form(%Ticket{title: params["title"]}, nil)
   end
 
   defp apply_action(socket, :edit, %{"ref" => ref}) do
@@ -162,6 +179,16 @@ defmodule SinkrWeb.TicketLive.Index do
     {:noreply, load_comments(socket)}
   end
 
+  def handle_event("tether", %{"workspace_id" => workspace_id, "ref" => ref}, socket) do
+    case Enum.find(socket.assigns.workspaces, &(&1.workspace_id == workspace_id)) do
+      nil ->
+        {:noreply, put_flash(socket, :error, "That workspace has gone away.")}
+
+      workspace ->
+        {:noreply, tether(socket, Tickets.get_ticket_by_ref!(ref), workspace)}
+    end
+  end
+
   def handle_event("delete", _params, socket) do
     {:ok, _ticket} = Tickets.delete_ticket(socket.assigns.selected)
 
@@ -228,8 +255,13 @@ defmodule SinkrWeb.TicketLive.Index do
 
   defp save(socket, %Ticket{id: nil}, params) do
     case Tickets.create_ticket(params) do
-      {:ok, ticket} -> saved(socket, ticket, "Opened.")
-      {:error, changeset} -> {:noreply, assign(socket, form: to_form(changeset))}
+      {:ok, ticket} ->
+        socket
+        |> maybe_tether_newborn(ticket)
+        |> saved(ticket, "Opened.")
+
+      {:error, changeset} ->
+        {:noreply, assign(socket, form: to_form(changeset))}
     end
   end
 
@@ -238,6 +270,29 @@ defmodule SinkrWeb.TicketLive.Index do
       {:ok, updated} -> saved(socket, updated, "Saved.")
       {:error, changeset} -> {:noreply, assign(socket, form: to_form(changeset))}
     end
+  end
+
+  # A ticket born from the strip tethers its workspace the moment it exists.
+  defp maybe_tether_newborn(%{assigns: %{tether_workspace: nil}} = socket, _ticket), do: socket
+
+  defp maybe_tether_newborn(%{assigns: %{tether_workspace: workspace}} = socket, ticket) do
+    tether(socket, ticket, workspace)
+  end
+
+  defp tether(socket, ticket, workspace) do
+    {:ok, outcome} = Herdr.tether(ticket, workspace)
+
+    # The rename only shows once the poller looks again; ask it to, now,
+    # instead of letting the strip look stale for a whole interval.
+    Herdr.poll_now()
+
+    message =
+      case outcome do
+        :renamed -> "Tethered."
+        :pinned -> "Rename refused — pinned instead."
+      end
+
+    socket |> assign(pins: Herdr.pins()) |> flash_then_clear(message)
   end
 
   defp saved(socket, ticket, message) do
@@ -271,6 +326,7 @@ defmodule SinkrWeb.TicketLive.Index do
       |> filter_by_show_done(socket.assigns.flags.show_done)
 
     assign(socket,
+      all_tickets: all,
       total_count: length(all),
       visible_count: length(visible),
       visible: visible,
@@ -345,8 +401,11 @@ defmodule SinkrWeb.TicketLive.Index do
 
   # An empty list when the flag is off, so the row renders chipless without
   # owning the flag logic itself.
-  defp presence_for(%{herdr: false}, _ticket, _workspaces), do: []
-  defp presence_for(_flags, ticket, workspaces), do: Herdr.workspaces_for(ticket, workspaces)
+  defp presence_for(%{herdr: false}, _ticket, _workspaces, _pins), do: []
+
+  defp presence_for(_flags, ticket, workspaces, pins) do
+    Herdr.workspaces_for(ticket, workspaces, pins)
+  end
 
   defp status_tone(:active), do: "bg-success"
   defp status_tone(:blocked), do: "bg-error"
@@ -410,6 +469,12 @@ defmodule SinkrWeb.TicketLive.Index do
         </button>
       </div>
 
+      <.untethered_strip
+        :if={@flags.herdr}
+        workspaces={Herdr.untethered(@workspaces, @pins)}
+        tickets={@all_tickets}
+      />
+
       <div class="grid gap-6 lg:grid-cols-2">
         <div class="space-y-5">
           <p :if={@visible == []} class="text-base-content/70 text-sm">
@@ -421,7 +486,7 @@ defmodule SinkrWeb.TicketLive.Index do
               :for={ticket <- Tickets.sort_by_priority(@visible)}
               ticket={ticket}
               selected={@selected}
-              presence={presence_for(@flags, ticket, @workspaces)}
+              presence={presence_for(@flags, ticket, @workspaces, @pins)}
             />
           </ul>
 
@@ -443,7 +508,7 @@ defmodule SinkrWeb.TicketLive.Index do
                 :for={ticket <- tickets}
                 ticket={ticket}
                 selected={@selected}
-                presence={presence_for(@flags, ticket, @workspaces)}
+                presence={presence_for(@flags, ticket, @workspaces, @pins)}
               />
             </ul>
           </details>
@@ -721,6 +786,56 @@ defmodule SinkrWeb.TicketLive.Index do
         </div>
       </div>
     </Layouts.app>
+    """
+  end
+
+  # Workspaces belonging to no ticket, kept apart from the ticket list. Two
+  # ways out, both ending in a rename so the label stays the source of
+  # truth: become a new ticket, or attach to one that exists.
+  attr :workspaces, :list, required: true
+  attr :tickets, :list, required: true, doc: "every ticket, for the attach select"
+
+  defp untethered_strip(assigns) do
+    ~H"""
+    <section :if={@workspaces != []} id="untethered-strip" class="space-y-2">
+      <h2 class="text-base-content/60 text-xs font-semibold tracking-wide uppercase">
+        Untethered <span class="font-normal">{length(@workspaces)}</span>
+      </h2>
+
+      <div class="flex flex-wrap gap-2">
+        <div
+          :for={workspace <- @workspaces}
+          id={"untethered-#{workspace.workspace_id}"}
+          class="border-base-300 flex items-center gap-2 rounded border px-2 py-1.5 text-sm"
+        >
+          <span class={["badge badge-xs", presence_tone(workspace.agent_status)]}>
+            {workspace.agent_status}
+          </span>
+          <span class="max-w-48 truncate" title={workspace.label}>{workspace.label}</span>
+
+          <.link
+            patch={~p"/tickets/new?#{[title: workspace.label, workspace: workspace.workspace_id]}"}
+            class="btn btn-xs"
+          >
+            Make ticket
+          </.link>
+
+          <form
+            phx-submit="tether"
+            id={"tether-#{workspace.workspace_id}"}
+            class="flex items-center gap-1"
+          >
+            <input type="hidden" name="workspace_id" value={workspace.workspace_id} />
+            <select name="ref" class="select select-xs w-40">
+              <option :for={ticket <- @tickets} value={Ticket.display_ref(ticket)}>
+                {Ticket.display_ref(ticket)} · {ticket.title}
+              </option>
+            </select>
+            <button type="submit" class="btn btn-xs">Attach</button>
+          </form>
+        </div>
+      </div>
+    </section>
     """
   end
 

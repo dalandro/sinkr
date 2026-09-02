@@ -36,6 +36,24 @@ defmodule Sinkr.Herdr.PollerTest do
     assert_receive {:herdr_workspaces, _}
   end
 
+  test "poll_now asks again immediately instead of waiting out the interval" do
+    Herdr.subscribe()
+
+    pid = start_supervised!({Poller, lister: fn -> {:ok, @workspaces} end, interval_ms: 60_000})
+
+    assert_receive {:herdr_workspaces, _}
+
+    Poller.poll_now(pid)
+
+    assert_receive {:herdr_workspaces, _}
+    # And only once — a manual poke must not fork a second polling chain.
+    refute_receive {:herdr_workspaces, _}, 100
+  end
+
+  test "poking a poller that isn't running is a shrug, not a crash" do
+    assert Herdr.poll_now() == :ok
+  end
+
   test "a broken herdr is a quiet dashboard, not a crash or stale chips" do
     Herdr.subscribe()
 
