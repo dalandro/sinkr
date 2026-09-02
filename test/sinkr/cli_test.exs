@@ -101,6 +101,21 @@ defmodule Sinkr.CLITest do
     end
   end
 
+  describe "session-seen" do
+    test "records the session on the workspace's episode" do
+      {:ok, _output} = CLI.run(["session-seen", "w1", "aaaa-1111", "s-12-comments"])
+
+      assert [episode] = Sinkr.Repo.all(Sinkr.Herdr.Episode)
+      assert episode.workspace_id == "w1"
+      assert episode.agent_session_ids == ["aaaa-1111"]
+    end
+
+    test "missing arguments print usage instead of half a row" do
+      assert {:error, message} = CLI.run(["session-seen", "w1"])
+      assert message =~ "Usage"
+    end
+  end
+
   describe "anything else" do
     test "no arguments at all prints usage" do
       assert {:error, message} = CLI.run([])

@@ -9,6 +9,11 @@ defmodule Sinkr.Herdr.Episode do
   derived from the label at read time, same as the live link. `ticket_id`
   is only ever a manual pin — the fallback for a rename that was refused —
   never written by the poller.
+
+  `agent_session_ids` come from the SessionStart hook, oldest first — herdr
+  accepts a reported session id but never surfaces it back (verified on
+  0.6.10), so the hook tells sinkr directly and the last entry is the one
+  `claude --resume` wants.
   """
 
   use Ecto.Schema
@@ -18,6 +23,7 @@ defmodule Sinkr.Herdr.Episode do
     field :label, :string
     field :first_seen_at, :utc_datetime
     field :last_seen_at, :utc_datetime
+    field :agent_session_ids, {:array, :string}, default: []
 
     belongs_to :ticket, Sinkr.Tickets.Ticket
 

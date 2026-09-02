@@ -819,8 +819,22 @@ defmodule SinkrWeb.TicketLive.Index do
                 class="border-base-300 flex items-center justify-between gap-2 rounded border px-2 py-1.5 text-sm"
               >
                 <span class="truncate" title={episode.workspace_id}>{episode.label}</span>
-                <span class="text-base-content/60 shrink-0 text-xs">
-                  {Episode.first_seen_stamp(episode)} → {Episode.last_seen_stamp(episode)}
+                <span class="flex shrink-0 items-center gap-2">
+                  <span class="text-base-content/60 text-xs">
+                    {Episode.first_seen_stamp(episode)} → {Episode.last_seen_stamp(episode)}
+                  </span>
+                  <button
+                    :if={episode.agent_session_ids != []}
+                    type="button"
+                    data-role="copy-resume"
+                    data-copy={"claude --resume #{List.last(episode.agent_session_ids)}"}
+                    phx-hook=".CopyOnClick"
+                    id={"copy-resume-#{episode.id}"}
+                    title={"Copy: claude --resume #{List.last(episode.agent_session_ids)}"}
+                    class="badge badge-xs badge-outline cursor-pointer font-mono"
+                  >
+                    resume
+                  </button>
                 </span>
               </div>
             </details>

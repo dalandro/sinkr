@@ -69,6 +69,35 @@ defmodule SinkrWeb.TicketLive.HistoryTest do
     assert has_element?(live, "#history-section [data-role=episode]", "#{ref} live-now")
   end
 
+  test "an episode with sessions offers the freshest one to resume",
+       %{conn: conn, ref: ref} do
+    Herdr.record_workspaces(
+      [%{workspace_id: "w1", label: "#{ref} first-go", agent_status: :idle}],
+      at("2026-09-01T09:00:00Z")
+    )
+
+    Herdr.record_session("w1", "aaaa-1111", "#{ref} first-go")
+    Herdr.record_session("w1", "bbbb-2222", "#{ref} first-go")
+
+    {:ok, live, _html} = live(conn, ~p"/tickets/#{ref}")
+
+    assert has_element?(
+             live,
+             "#history-section button[data-role=copy-resume][data-copy='claude --resume bbbb-2222'][phx-hook]"
+           )
+  end
+
+  test "an episode that never had a session has nothing to resume", %{conn: conn, ref: ref} do
+    Herdr.record_workspaces(
+      [%{workspace_id: "w1", label: "#{ref} first-go", agent_status: :idle}],
+      at("2026-09-01T09:00:00Z")
+    )
+
+    {:ok, live, _html} = live(conn, ~p"/tickets/#{ref}")
+
+    refute has_element?(live, "#history-section button[data-role=copy-resume]")
+  end
+
   test "the herdr cog flag hides history with the rest", %{conn: conn, ref: ref} do
     Herdr.record_workspaces(
       [%{workspace_id: "w1", label: "#{ref} first-go", agent_status: :idle}],

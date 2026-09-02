@@ -109,6 +109,41 @@ defmodule Sinkr.Herdr do
     |> Enum.filter(&(ticket_ref(&1.label) == ref or &1.ticket_id == ticket.id))
   end
 
+  @doc """
+  Writes down that an agent session started in a workspace — called by the
+  SessionStart hook, not the poller, because herdr accepts a reported
+  session id but never surfaces it back (verified on herdr 0.6.10).
+
+  Oldest first, so the last id is the freshest resume target. The same
+  session starting twice (a resume) stays one entry. The hook can fire
+  before the poller's first tick ever sees the workspace, so a missing
+  episode row is opened rather than dropped — read-modify-write is fine
+  here, one hook firing per session start on one person's machine.
+  """
+  def record_session(workspace_id, session_id, label) do
+    now = DateTime.utc_now(:second)
+
+    case Repo.get_by(Episode, workspace_id: workspace_id) do
+      nil ->
+        Repo.insert!(%Episode{
+          workspace_id: workspace_id,
+          label: label,
+          first_seen_at: now,
+          last_seen_at: now,
+          agent_session_ids: [session_id]
+        })
+
+      %Episode{agent_session_ids: ids} = episode ->
+        if session_id in ids do
+          episode
+        else
+          episode
+          |> Ecto.Changeset.change(agent_session_ids: ids ++ [session_id])
+          |> Repo.update!()
+        end
+    end
+  end
+
   @doc "Every pin, as `workspace_id => ticket_id` — the shape the joins take."
   def pins do
     Repo.all(from e in Episode, where: not is_nil(e.ticket_id))

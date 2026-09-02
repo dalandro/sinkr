@@ -19,8 +19,9 @@ defmodule Sinkr.CLI do
   Usage: sinkr <command> [args]
 
   Commands:
-    show <ref>   Show a ticket by ref, e.g. sinkr show s-12
-    list         List every ticket
+    show <ref>                                 Show a ticket by ref, e.g. sinkr show s-12
+    list                                       List every ticket
+    session-seen <workspace> <session> <label> Record an agent session on a herdr workspace
   """
 
   @doc """
@@ -42,6 +43,14 @@ defmodule Sinkr.CLI do
       [] -> {:ok, "Nothing to show.\n"}
       tickets -> {:ok, Enum.map_join(tickets, &list_line/1)}
     end
+  end
+
+  # The SessionStart hook's way in: herdr accepts a reported session id but
+  # never surfaces it back (verified on 0.6.10), so the hook tells sinkr
+  # directly. Quiet on success — hook output is nobody's reading.
+  def run(["session-seen", workspace_id, session_id, label]) do
+    Sinkr.Herdr.record_session(workspace_id, session_id, label)
+    {:ok, ""}
   end
 
   def run(_argv), do: {:error, @usage}

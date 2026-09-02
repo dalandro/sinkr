@@ -74,6 +74,34 @@ defmodule Sinkr.Herdr.EpisodesTest do
     def rename_workspace(_workspace_id, _label), do: {:error, "workspace not found"}
   end
 
+  describe "record_session/3" do
+    test "lands on the workspace's episode, oldest first" do
+      Herdr.record_workspaces([workspace(%{})], at("2026-09-02T10:00:00Z"))
+
+      Herdr.record_session("w1", "aaaa-1111", "s-12-comments")
+      Herdr.record_session("w1", "bbbb-2222", "s-12-comments")
+
+      assert [%Episode{agent_session_ids: ["aaaa-1111", "bbbb-2222"]}] = Repo.all(Episode)
+    end
+
+    test "the same session starting twice is one entry" do
+      Herdr.record_workspaces([workspace(%{})], at("2026-09-02T10:00:00Z"))
+
+      Herdr.record_session("w1", "aaaa-1111", "s-12-comments")
+      Herdr.record_session("w1", "aaaa-1111", "s-12-comments")
+
+      assert [%Episode{agent_session_ids: ["aaaa-1111"]}] = Repo.all(Episode)
+    end
+
+    test "a session in a workspace the poller hasn't logged yet opens the episode" do
+      # The hook can fire before the first tick ever sees the workspace.
+      Herdr.record_session("w7", "cccc-3333", "s-9 fresh")
+
+      assert [%Episode{workspace_id: "w7", label: "s-9 fresh", agent_session_ids: ["cccc-3333"]}] =
+               Repo.all(Episode)
+    end
+  end
+
   describe "record_workspaces/2" do
     test "a first sighting opens the episode" do
       seen = at("2026-09-02T10:00:00Z")

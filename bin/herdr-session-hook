@@ -1,0 +1,35 @@
+#!/usr/bin/env bash
+# Claude Code SessionStart hook: tells sinkr which agent session just began
+# in which herdr workspace, so a ticket's history panel can offer
+# `claude --resume <id>` later.
+#
+# Reports to herdr too, for the day herdr surfaces reported session ids —
+# today (0.6.10) it accepts them and shows them nowhere, which is why sinkr
+# is told directly instead of the poller reading them back.
+#
+# Everything slow runs backgrounded: a session start shouldn't wait on a
+# mix boot. Outside a herdr pane, or with nothing on stdin worth recording,
+# this exits quietly — a hook that can't help should never be the reason a
+# session fails to start.
+set -euo pipefail
+
+[ -n "${HERDR_PANE_ID:-}" ] || exit 0
+
+session_id=$(python3 -c 'import json,sys; print(json.load(sys.stdin).get("session_id",""))' 2>/dev/null || true)
+[ -n "$session_id" ] || exit 0
+
+script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+
+(
+  workspace_id=$(herdr pane get "$HERDR_PANE_ID" |
+    python3 -c 'import json,sys; print(json.load(sys.stdin)["result"]["pane"]["workspace_id"])')
+  label=$(herdr workspace get "$workspace_id" |
+    python3 -c 'import json,sys; print(json.load(sys.stdin)["result"]["workspace"]["label"])')
+
+  herdr pane report-agent-session "$HERDR_PANE_ID" \
+    --source claude-code --agent claude --agent-session-id "$session_id" || true
+
+  "$script_dir/sinkr" session-seen "$workspace_id" "$session_id" "$label"
+) >/dev/null 2>&1 &
+
+exit 0
