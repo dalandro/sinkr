@@ -5,7 +5,7 @@ defmodule Sinkr.Herdr.EpisodesTest do
   `herdr workspace list` and history can't be backfilled later.
   """
 
-  use Sinkr.DataCase, async: true
+  use Sinkr.DataCase, async: false
 
   alias Sinkr.Herdr
   alias Sinkr.Herdr.Episode
@@ -15,6 +15,64 @@ defmodule Sinkr.Herdr.EpisodesTest do
   end
 
   defp at(iso), do: iso |> DateTime.from_iso8601() |> then(fn {:ok, dt, 0} -> dt end)
+
+  describe "episodes_for/1" do
+    setup do
+      {:ok, ticket} = Sinkr.Tickets.create_ticket(%{title: "Fix it", category: :bug})
+      %{ticket: ticket, ref: Sinkr.Tickets.Ticket.display_ref(ticket)}
+    end
+
+    test "finds every episode whose stored label wears the ref", %{ticket: ticket, ref: ref} do
+      Herdr.record_workspaces(
+        [
+          workspace(%{workspace_id: "w1", label: "#{ref}-fix"}),
+          workspace(%{workspace_id: "w2", label: "hooks-refactor"}),
+          workspace(%{workspace_id: "w3", label: "#{ref} retry"})
+        ],
+        at("2026-09-02T10:00:00Z")
+      )
+
+      assert [%Episode{workspace_id: _}, %Episode{}] = episodes = Herdr.episodes_for(ticket)
+      assert Enum.map(episodes, & &1.workspace_id) |> Enum.sort() == ["w1", "w3"]
+    end
+
+    test "a pinned episode belongs whatever its label says", %{ticket: ticket} do
+      Herdr.record_workspaces([workspace(%{label: "scratch"})], at("2026-09-02T10:00:00Z"))
+
+      {:ok, :pinned} = tethered_by_pin(ticket, workspace(%{label: "scratch"}))
+
+      assert [%Episode{workspace_id: "w1"}] = Herdr.episodes_for(ticket)
+    end
+
+    test "the freshest sighting comes first", %{ref: ref} do
+      Herdr.record_workspaces(
+        [workspace(%{workspace_id: "w1", label: "#{ref} old"})],
+        at("2026-09-02T09:00:00Z")
+      )
+
+      Herdr.record_workspaces(
+        [workspace(%{workspace_id: "w2", label: "#{ref} new"})],
+        at("2026-09-02T10:00:00Z")
+      )
+
+      {:ok, ticket} = {:ok, %Sinkr.Tickets.Ticket{id: ref_id(ref)}}
+
+      assert ["w2", "w1"] = Herdr.episodes_for(ticket) |> Enum.map(& &1.workspace_id)
+    end
+
+    defp ref_id(ref), do: ref |> String.trim_leading("s-") |> String.to_integer()
+
+    defp tethered_by_pin(ticket, workspace) do
+      Application.put_env(:sinkr, :herdr_cli, __MODULE__.RefusingCLI)
+      on_exit(fn -> Application.delete_env(:sinkr, :herdr_cli) end)
+
+      Herdr.tether(ticket, workspace)
+    end
+  end
+
+  defmodule RefusingCLI do
+    def rename_workspace(_workspace_id, _label), do: {:error, "workspace not found"}
+  end
 
   describe "record_workspaces/2" do
     test "a first sighting opens the episode" do

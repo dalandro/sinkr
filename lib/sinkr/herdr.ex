@@ -93,6 +93,22 @@ defmodule Sinkr.Herdr do
     end
   end
 
+  @doc """
+  This ticket's workspace history, freshest sighting first: every episode
+  whose stored label wears the ticket's ref, plus any pinned to it.
+
+  The label match happens here rather than in SQL so `ticket_ref/1` stays
+  the only place that knows what counts as a ref — a LIKE would happily let
+  `s-1` claim `s-12`'s history. The table is one row per workspace ever
+  seen on one person's machine; reading all of it is nothing.
+  """
+  def episodes_for(%Ticket{} = ticket) do
+    ref = Ticket.display_ref(ticket)
+
+    Repo.all(from e in Episode, order_by: [desc: e.last_seen_at, desc: e.id])
+    |> Enum.filter(&(ticket_ref(&1.label) == ref or &1.ticket_id == ticket.id))
+  end
+
   @doc "Every pin, as `workspace_id => ticket_id` — the shape the joins take."
   def pins do
     Repo.all(from e in Episode, where: not is_nil(e.ticket_id))

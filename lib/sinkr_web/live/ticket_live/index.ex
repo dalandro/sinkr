@@ -11,6 +11,7 @@ defmodule SinkrWeb.TicketLive.Index do
   use SinkrWeb, :live_view
 
   alias Sinkr.Herdr
+  alias Sinkr.Herdr.Episode
   alias Sinkr.Tickets
   alias Sinkr.Tickets.Comment
   alias Sinkr.Tickets.Sinker
@@ -61,6 +62,7 @@ defmodule SinkrWeb.TicketLive.Index do
 
     socket
     |> assign(selected: ticket, editing: nil, form: nil)
+    |> load_episodes()
     |> load_comments()
     |> reset_composer()
     |> load_file_entries()
@@ -314,7 +316,11 @@ defmodule SinkrWeb.TicketLive.Index do
   def handle_info(:clear_flash, socket), do: {:noreply, clear_flash(socket)}
 
   def handle_info({:herdr_workspaces, workspaces}, socket) do
-    {:noreply, assign(socket, workspaces: workspaces)}
+    socket = assign(socket, workspaces: workspaces)
+
+    # The tick that moved the chips also moved episode rows; an open detail
+    # pane's history should say the same thing the chips do.
+    {:noreply, if(socket.assigns.selected, do: load_episodes(socket), else: socket)}
   end
 
   defp load_tickets(socket) do
@@ -379,6 +385,10 @@ defmodule SinkrWeb.TicketLive.Index do
       comment_form: to_form(%{"body" => ""}, as: :comment),
       composer_version: System.unique_integer([:positive, :monotonic])
     )
+  end
+
+  defp load_episodes(socket) do
+    assign(socket, episodes: Herdr.episodes_for(socket.assigns.selected))
   end
 
   defp load_file_entries(socket) do
@@ -763,6 +773,29 @@ defmodule SinkrWeb.TicketLive.Index do
                   …or drop files here
                 </div>
               </form>
+            </details>
+
+            <details
+              :if={@flags.herdr && @episodes != []}
+              id="history-section"
+              class="space-y-2"
+            >
+              <summary class="cursor-pointer select-none">
+                <h3 class="text-base-content/60 inline-flex text-xs font-semibold tracking-wide uppercase">
+                  History ({length(@episodes)})
+                </h3>
+              </summary>
+
+              <div
+                :for={episode <- @episodes}
+                data-role="episode"
+                class="border-base-300 flex items-center justify-between gap-2 rounded border px-2 py-1.5 text-sm"
+              >
+                <span class="truncate" title={episode.workspace_id}>{episode.label}</span>
+                <span class="text-base-content/60 shrink-0 text-xs">
+                  {Episode.first_seen_stamp(episode)} → {Episode.last_seen_stamp(episode)}
+                </span>
+              </div>
             </details>
 
             <div class="flex gap-2">

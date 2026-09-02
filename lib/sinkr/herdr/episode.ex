@@ -23,4 +23,12 @@ defmodule Sinkr.Herdr.Episode do
 
     timestamps(type: :utc_datetime)
   end
+
+  @doc "When the workspace was first sighted, to the minute — comment-stamp shaped."
+  def first_seen_stamp(%__MODULE__{first_seen_at: at}), do: format(at)
+
+  @doc "When it was last sighted, in the same shape as `first_seen_stamp/1`."
+  def last_seen_stamp(%__MODULE__{last_seen_at: at}), do: format(at)
+
+  defp format(at), do: Calendar.strftime(at, "%Y-%m-%d %H:%M")
 end
