@@ -557,11 +557,38 @@ defmodule SinkrWeb.TicketLive.Index do
           <div :if={is_nil(@form) && @selected} class="space-y-4">
             <h2 class="text-lg leading-snug font-semibold">{@selected.title}</h2>
 
-            <p class="text-base-content/70 text-xs">
-              ID: {Ticket.display_ref(@selected)} · Category: {Phoenix.Naming.humanize(
-                @selected.category
-              )}
+            <p class="text-base-content/70 flex items-center gap-2 text-xs">
+              <span>
+                ID: {Ticket.display_ref(@selected)} · Category: {Phoenix.Naming.humanize(
+                  @selected.category
+                )}
+              </span>
+              <button
+                :if={@flags.herdr}
+                type="button"
+                data-role="copy-label"
+                data-copy={Herdr.suggested_label(@selected)}
+                phx-hook=".CopyOnClick"
+                id={"copy-label-#{@selected.id}"}
+                title="Copy a workspace label for this ticket"
+                class="badge badge-xs badge-outline cursor-pointer font-mono"
+              >
+                {Herdr.suggested_label(@selected)}
+              </button>
             </p>
+
+            <script :type={Phoenix.LiveView.ColocatedHook} name=".CopyOnClick">
+              export default {
+                mounted() {
+                  this.el.addEventListener("click", async () => {
+                    await navigator.clipboard.writeText(this.el.dataset.copy)
+                    const label = this.el.textContent
+                    this.el.textContent = "copied!"
+                    setTimeout(() => { this.el.textContent = label }, 1000)
+                  })
+                }
+              }
+            </script>
 
             <script :type={Phoenix.LiveView.ColocatedHook} name=".SubmitOnCtrlEnter">
               export default {

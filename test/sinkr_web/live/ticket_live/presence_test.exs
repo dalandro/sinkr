@@ -77,6 +77,32 @@ defmodule SinkrWeb.TicketLive.PresenceTest do
     assert has_element?(live, "#ticket-#{ticket.id} [data-role=presence]", "working")
   end
 
+  describe "the copy chip" do
+    test "the detail pane offers the suggested label to copy", %{
+      conn: conn,
+      ticket: ticket,
+      ref: ref
+    } do
+      {:ok, live, _html} = live(conn, ~p"/tickets/#{ref}")
+
+      assert has_element?(
+               live,
+               "button[data-role=copy-label][data-copy='#{ref} fix-the-comments-composer'][phx-hook]"
+             )
+
+      _ = ticket
+    end
+
+    test "the herdr cog flag hides the chip", %{conn: conn, ref: ref} do
+      {:ok, live, _html} =
+        conn
+        |> put_connect_params(%{"flags" => %{"herdr" => "false"}})
+        |> live(~p"/tickets/#{ref}")
+
+      refute has_element?(live, "button[data-role=copy-label]")
+    end
+  end
+
   describe "the herdr cog flag" do
     test "hides chips without stopping the ears", %{conn: conn, ticket: ticket, ref: ref} do
       {:ok, live, _html} =

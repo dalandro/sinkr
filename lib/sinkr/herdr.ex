@@ -186,6 +186,21 @@ defmodule Sinkr.Herdr do
     end)
   end
 
+  @doc """
+  The label to give a workspace for this ticket, ready to paste into herdr —
+  typing a ref by hand is how `s-1` ends up on `s-12`'s work. Ref up front,
+  same shape `tether/2` writes.
+  """
+  def suggested_label(%Ticket{} = ticket) do
+    slug =
+      ticket.title
+      |> String.downcase()
+      |> String.replace(~r/[^a-z0-9]+/, "-")
+      |> String.trim("-")
+
+    "#{Ticket.display_ref(ticket)} #{slug}"
+  end
+
   @doc "Workspaces belonging to no ticket at all — no ref in the label, no pin."
   def untethered(workspaces, pins) do
     Enum.filter(workspaces, fn workspace ->

@@ -89,6 +89,20 @@ defmodule Sinkr.HerdrTest do
     end
   end
 
+  describe "suggested_label/1" do
+    test "ref up front, title kebab-cased behind it" do
+      ticket = %Sinkr.Tickets.Ticket{id: 12, title: "Fix the poller"}
+
+      assert Herdr.suggested_label(ticket) == "s-12 fix-the-poller"
+    end
+
+    test "punctuation collapses instead of leaking into the label" do
+      ticket = %Sinkr.Tickets.Ticket{id: 7, title: "  Comments: edit / delete!!  "}
+
+      assert Herdr.suggested_label(ticket) == "s-7 comments-edit-delete"
+    end
+  end
+
   describe "untethered/2" do
     test "workspaces with no ref and no pin, in list order" do
       workspaces = [
