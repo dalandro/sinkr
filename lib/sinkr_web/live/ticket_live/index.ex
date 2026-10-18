@@ -714,7 +714,7 @@ defmodule SinkrWeb.TicketLive.Index do
               }
             </script>
 
-            <.quick_controls selected={@selected} design={@flags.design} />
+            <.quick_controls selected={@selected} design={@flags.design} herdr={@flags.herdr} />
 
             <.form for={@comment_form} id="new-comment" phx-submit="add_comment" class="space-y-1">
               <textarea
@@ -1128,6 +1128,7 @@ defmodule SinkrWeb.TicketLive.Index do
   # the title where a control reads as a control rather than a footer.
   attr :selected, Ticket, required: true
   attr :design, :atom, required: true
+  attr :herdr, :boolean, required: true, doc: "whether to offer the workspace label to copy"
 
   # Linear lays properties out as a key/value list, the control dressed as
   # its value until you reach for it.
@@ -1175,7 +1176,21 @@ defmodule SinkrWeb.TicketLive.Index do
       </dd>
 
       <dt>ID</dt>
-      <dd class="font-mono">{Ticket.display_ref(@selected)}</dd>
+      <dd class="font-mono">
+        {Ticket.display_ref(@selected)}
+        <button
+          :if={@herdr}
+          type="button"
+          data-role="copy-label"
+          data-copy={Herdr.suggested_label(@selected)}
+          phx-hook=".CopyOnClick"
+          id={"copy-label-linear-#{@selected.id}"}
+          title="Copy a workspace label for this ticket"
+          class="badge badge-xs badge-outline cursor-pointer font-mono"
+        >
+          {Herdr.suggested_label(@selected)}
+        </button>
+      </dd>
     </dl>
     """
   end

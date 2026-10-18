@@ -93,6 +93,18 @@ defmodule SinkrWeb.TicketLive.PresenceTest do
       _ = ticket
     end
 
+    test "linear keeps the chip, in its ID row", %{conn: conn, ref: ref} do
+      {:ok, live, _html} =
+        conn
+        |> put_connect_params(%{"flags" => %{"design" => "linear"}})
+        |> live(~p"/tickets/#{ref}")
+
+      assert has_element?(
+               live,
+               "#ticket-properties button[data-role=copy-label][data-copy='#{ref} fix-the-comments-composer'][phx-hook]"
+             )
+    end
+
     test "the herdr cog flag hides the chip", %{conn: conn, ref: ref} do
       {:ok, live, _html} =
         conn
