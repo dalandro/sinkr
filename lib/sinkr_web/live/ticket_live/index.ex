@@ -400,7 +400,7 @@ defmodule SinkrWeb.TicketLive.Index do
   defp filter_by_show_done(tickets, true), do: tickets
   defp filter_by_show_done(tickets, false), do: Enum.reject(tickets, &(&1.status == :done))
 
-  defp default_flags, do: %{layout: :grouped, show_done: true, herdr: true, design: :classic}
+  defp default_flags, do: %{layout: :grouped, show_done: true, herdr: true}
 
   defp parse_flags(flags) when is_map(flags) do
     Enum.reduce(flags, default_flags(), fn {flag, to}, acc -> merge_flag(acc, flag, to) end)
@@ -416,8 +416,6 @@ defmodule SinkrWeb.TicketLive.Index do
   defp merge_flag(flags, "show_done", "false"), do: %{flags | show_done: false}
   defp merge_flag(flags, "herdr", "true"), do: %{flags | herdr: true}
   defp merge_flag(flags, "herdr", "false"), do: %{flags | herdr: false}
-  defp merge_flag(flags, "design", "classic"), do: %{flags | design: :classic}
-  defp merge_flag(flags, "design", "calm"), do: %{flags | design: :calm}
   defp merge_flag(flags, _flag, _to), do: flags
 
   # Reloading the log closes any in-progress edit — the log changed under it.
@@ -456,16 +454,6 @@ defmodule SinkrWeb.TicketLive.Index do
   # The value is an atom fresh from the schema and a string once typed into.
   defp weekly?(form), do: to_string(form[:cadence].value) == "weekly"
 
-  # Calm drops the composer's warning tint: the newest comment is "where I
-  # am now", but a box that shouts every time you open a ticket isn't calm.
-  defp composer_class(:classic),
-    do:
-      "border-warning bg-warning/10 focus:bg-warning/20 w-full resize-none rounded border-l-2 py-2 pl-3 text-sm outline-none"
-
-  defp composer_class(:calm),
-    do:
-      "border-base-300 bg-base-200/60 focus:border-primary w-full resize-none rounded border py-2 pl-3 text-sm outline-none"
-
   defp cadence_options, do: Enum.map(Reminder.cadences(), &{Phoenix.Naming.humanize(&1), &1})
 
   defp weekday_options,
@@ -481,10 +469,6 @@ defmodule SinkrWeb.TicketLive.Index do
   defp presence_dot(:working), do: "bg-success"
   defp presence_dot(:blocked), do: "bg-error"
   defp presence_dot(:idle), do: "border-base-content/40 border bg-transparent"
-
-  defp presence_tone(:working), do: "badge-success"
-  defp presence_tone(:blocked), do: "badge-error"
-  defp presence_tone(:idle), do: "badge-ghost"
 
   # An empty list when the flag is off, so the row renders chipless without
   # owning the flag logic itself.
@@ -566,7 +550,6 @@ defmodule SinkrWeb.TicketLive.Index do
         :if={@flags.herdr}
         workspaces={Herdr.untethered(@workspaces, @pins)}
         tickets={@all_tickets}
-        design={@flags.design}
       />
 
       <div class="grid gap-6 lg:grid-cols-2">
@@ -581,7 +564,6 @@ defmodule SinkrWeb.TicketLive.Index do
               ticket={ticket}
               selected={@selected}
               presence={presence_for(@flags, ticket, @workspaces, @pins)}
-              design={@flags.design}
             />
           </ul>
 
@@ -605,7 +587,6 @@ defmodule SinkrWeb.TicketLive.Index do
                 ticket={ticket}
                 selected={@selected}
                 presence={presence_for(@flags, ticket, @workspaces, @pins)}
-                design={@flags.design}
               />
             </ul>
           </details>
@@ -690,7 +671,7 @@ defmodule SinkrWeb.TicketLive.Index do
               }
             </script>
 
-            <.quick_controls :if={@flags.design == :calm} selected={@selected} />
+            <.quick_controls selected={@selected} />
 
             <.form for={@comment_form} id="new-comment" phx-submit="add_comment" class="space-y-1">
               <textarea
@@ -699,7 +680,7 @@ defmodule SinkrWeb.TicketLive.Index do
                 rows="2"
                 phx-hook=".SubmitOnCtrlEnter"
                 placeholder="What did you find? What's next?"
-                class={composer_class(@flags.design)}
+                class="border-base-300 bg-base-200/60 focus:border-primary w-full resize-none rounded border py-2 pl-3 text-sm outline-none"
               >{Phoenix.HTML.Form.normalize_value("textarea", @comment_form[:body].value)}</textarea>
               <div class="flex justify-end">
                 <button type="submit" class="btn btn-xs">Add comment</button>
@@ -724,7 +705,7 @@ defmodule SinkrWeb.TicketLive.Index do
                     name={@comment_edit_form[:body].name}
                     rows="3"
                     phx-hook=".SubmitOnCtrlEnter"
-                    class={composer_class(@flags.design)}
+                    class="border-base-300 bg-base-200/60 focus:border-primary w-full resize-none rounded border py-2 pl-3 text-sm outline-none"
                   >{Phoenix.HTML.Form.normalize_value("textarea", @comment_edit_form[:body].value)}</textarea>
                   <div class="flex justify-end gap-1">
                     <button type="button" phx-click="cancel_edit_comment" class="btn btn-xs btn-ghost">
@@ -766,8 +747,6 @@ defmodule SinkrWeb.TicketLive.Index do
                 </div>
               </li>
             </ol>
-
-            <.quick_controls :if={@flags.design == :classic} selected={@selected} />
 
             <details id="files-section" open={@files_open} class="space-y-2">
               <summary class="cursor-pointer select-none">
@@ -1038,9 +1017,8 @@ defmodule SinkrWeb.TicketLive.Index do
     """
   end
 
-  # Status and priority, the two things you set on a ticket by hand. Classic
-  # keeps them under the comments; calm puts them under the title, where a
-  # control reads as a control rather than a footer.
+  # Status and priority, the two things you set on a ticket by hand, under
+  # the title where a control reads as a control rather than a footer.
   attr :selected, Ticket, required: true
 
   defp quick_controls(assigns) do
@@ -1076,7 +1054,6 @@ defmodule SinkrWeb.TicketLive.Index do
   # truth: become a new ticket, or attach to one that exists.
   attr :workspaces, :list, required: true
   attr :tickets, :list, required: true, doc: "every ticket, for the attach select"
-  attr :design, :atom, required: true
 
   defp untethered_strip(assigns) do
     ~H"""
@@ -1092,7 +1069,7 @@ defmodule SinkrWeb.TicketLive.Index do
         </h2>
       </summary>
 
-      <div :if={@design == :calm} class="flex flex-wrap gap-2">
+      <div class="flex flex-wrap gap-2">
         <details
           :for={workspace <- @workspaces}
           id={"untethered-#{workspace.workspace_id}"}
@@ -1128,40 +1105,6 @@ defmodule SinkrWeb.TicketLive.Index do
           </div>
         </details>
       </div>
-
-      <div :if={@design == :classic} class="flex flex-wrap gap-2">
-        <div
-          :for={workspace <- @workspaces}
-          id={"untethered-#{workspace.workspace_id}"}
-          class="border-base-300 flex items-center gap-2 rounded border px-2 py-1.5 text-sm"
-        >
-          <span class={["badge badge-xs", presence_tone(workspace.agent_status)]}>
-            {workspace.agent_status}
-          </span>
-          <span class="max-w-48 truncate" title={workspace.label}>{workspace.label}</span>
-
-          <.link
-            patch={~p"/tickets/new?#{[title: workspace.label, workspace: workspace.workspace_id]}"}
-            class="btn btn-xs"
-          >
-            Make ticket
-          </.link>
-
-          <form
-            phx-submit="tether"
-            id={"tether-#{workspace.workspace_id}"}
-            class="flex items-center gap-1"
-          >
-            <input type="hidden" name="workspace_id" value={workspace.workspace_id} />
-            <select name="ref" class="select select-xs w-40">
-              <option :for={ticket <- @tickets} value={Ticket.display_ref(ticket)}>
-                {Ticket.display_ref(ticket)} · {ticket.title}
-              </option>
-            </select>
-            <button type="submit" class="btn btn-xs">Attach</button>
-          </form>
-        </div>
-      </div>
     </details>
     """
   end
@@ -1171,12 +1114,11 @@ defmodule SinkrWeb.TicketLive.Index do
   attr :ticket, Ticket, required: true
   attr :selected, :any, required: true
   attr :presence, :list, required: true, doc: "workspaces wearing this ticket's ref right now"
-  attr :design, :atom, required: true
 
-  # Calm says less per row: the category sits off to the right, priority
-  # only speaks up when it's urgent, and an idle workspace is a hollow dot
-  # rather than a word.
-  defp ticket_row(%{design: :calm} = assigns) do
+  # A row says little: the category sits off to the right, priority only
+  # speaks up when it's urgent, and an idle workspace is a hollow dot rather
+  # than a word.
+  defp ticket_row(assigns) do
     ~H"""
     <li id={"ticket-#{@ticket.id}"}>
       <.link
@@ -1207,6 +1149,7 @@ defmodule SinkrWeb.TicketLive.Index do
         <span
           :for={workspace <- @presence}
           data-role="presence"
+          data-status={workspace.agent_status}
           title={"#{workspace.label} · #{workspace.agent_status}"}
           class={[
             "size-2 shrink-0 rounded-full",
@@ -1215,39 +1158,6 @@ defmodule SinkrWeb.TicketLive.Index do
         ></span>
         <span class="text-base-content/50 shrink-0 text-xs">
           {Phoenix.Naming.humanize(@ticket.category)}
-        </span>
-      </.link>
-    </li>
-    """
-  end
-
-  defp ticket_row(assigns) do
-    ~H"""
-    <li id={"ticket-#{@ticket.id}"}>
-      <.link
-        patch={~p"/tickets/#{Ticket.display_ref(@ticket)}"}
-        class={[
-          "ticket-row hover:bg-base-200 block border-l-2 px-2 py-2",
-          if(selected?(@selected, @ticket),
-            do: "bg-base-200 border-primary",
-            else: "border-transparent"
-          )
-        ]}
-      >
-        <span class="flex items-center gap-1.5 text-sm">
-          <span class="truncate">{@ticket.title}</span>
-          <span
-            :for={workspace <- @presence}
-            data-role="presence"
-            title={workspace.label}
-            class={["badge badge-xs shrink-0", presence_tone(workspace.agent_status)]}
-          >
-            {workspace.agent_status}
-          </span>
-        </span>
-        <span class="text-base-content/70 text-xs">
-          <span title={Ticket.priority_label(@ticket.priority)}>P{@ticket.priority}</span>
-          · {Phoenix.Naming.humanize(@ticket.category)}
         </span>
       </.link>
     </li>

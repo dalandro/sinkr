@@ -2,8 +2,8 @@ defmodule SinkrWeb.TicketLive.TogglesTest do
   @moduledoc """
   The cog menu: view preferences the browser remembers, none of them data.
 
-  Layout, show-done and design round-trip through the server (they change
-  what is rendered); density and thumbnails never leave the client, so all the server
+  Layout and show-done round-trip through the server (they change what is
+  rendered); density and thumbnails never leave the client, so all the server
   owes them is the buttons. Preferences arrive as connect params — a fresh
   mount with none gets the defaults.
   """
@@ -12,9 +12,7 @@ defmodule SinkrWeb.TicketLive.TogglesTest do
 
   import Phoenix.LiveViewTest
 
-  alias Sinkr.Herdr
   alias Sinkr.Tickets
-  alias Sinkr.Tickets.Ticket
 
   setup do
     {:ok, urgent} = Tickets.create_ticket(%{title: "Fix the flaky spec", category: :bug})
@@ -114,66 +112,6 @@ defmodule SinkrWeb.TicketLive.TogglesTest do
       assert has_element?(live, "#cog-menu button[data-flag=density]")
       assert has_element?(live, "#cog-menu button[data-flag=thumbs]")
       refute has_element?(live, "#cog-menu button[data-flag=density][phx-value-flag]")
-    end
-  end
-
-  describe "design flag" do
-    test "calm folds a workspace's actions away and lifts the controls above the comments",
-         %{conn: conn, urgent: urgent, shipped: shipped} do
-      {:ok, live, _html} =
-        conn
-        |> put_connect_params(%{"flags" => %{"design" => "calm"}})
-        |> live(~p"/tickets/#{Ticket.display_ref(urgent)}")
-
-      Herdr.broadcast_workspaces([%{workspace_id: "w9", label: "scratch", agent_status: :idle}])
-      html = render(live)
-
-      assert has_element?(live, "#untethered-w9.dropdown summary", "scratch")
-      assert has_element?(live, "#untethered-w9 form#tether-w9")
-      assert has_element?(live, "#ticket-#{urgent.id} [data-role=priority]", "P0")
-      refute has_element?(live, "#ticket-#{shipped.id} [data-role=priority]")
-      assert has_element?(live, "#new-comment textarea.border-base-300")
-
-      {status_at, _} = :binary.match(html, "quick-status-select")
-      {comments_at, _} = :binary.match(html, ~s(id="comments"))
-      assert status_at < comments_at
-    end
-
-    test "classic keeps the actions on the chip and the controls under the comments",
-         %{conn: conn, urgent: urgent, shipped: shipped} do
-      {:ok, live, _html} = live(conn, ~p"/tickets/#{Ticket.display_ref(urgent)}")
-
-      Herdr.broadcast_workspaces([%{workspace_id: "w9", label: "scratch", agent_status: :idle}])
-      html = render(live)
-
-      refute has_element?(live, "#untethered-w9.dropdown")
-      assert has_element?(live, "#untethered-w9 form#tether-w9")
-      refute has_element?(live, "#ticket-#{urgent.id} [data-role=priority]")
-      refute has_element?(live, "#ticket-#{shipped.id} [data-role=priority]")
-      assert has_element?(live, "#new-comment textarea.border-warning")
-
-      {status_at, _} = :binary.match(html, "quick-status-select")
-      {comments_at, _} = :binary.match(html, ~s(id="comments"))
-      assert status_at > comments_at
-    end
-
-    test "switching to calm re-renders the list live", %{conn: conn, urgent: urgent} do
-      {:ok, live, _html} = live(conn, ~p"/")
-
-      live
-      |> element("#cog-menu button[phx-value-flag=design][phx-value-to=calm]")
-      |> render_click()
-
-      assert has_element?(live, "#ticket-#{urgent.id} [data-role=priority]", "P0")
-    end
-
-    test "a junk design means classic", %{conn: conn, urgent: urgent} do
-      {:ok, live, _html} =
-        conn
-        |> put_connect_params(%{"flags" => %{"design" => "neon"}})
-        |> live(~p"/")
-
-      refute has_element?(live, "#ticket-#{urgent.id} [data-role=priority]")
     end
   end
 end

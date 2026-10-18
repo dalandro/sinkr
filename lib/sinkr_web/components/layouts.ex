@@ -32,7 +32,7 @@ defmodule SinkrWeb.Layouts do
     doc: "the current [scope](https://phoenix.hexdocs.pm/scopes.html)"
 
   attr :flags, :map,
-    default: %{layout: :grouped, show_done: true, herdr: true, design: :classic},
+    default: %{layout: :grouped, show_done: true, herdr: true},
     doc: "view preferences the cog menu offers; see SinkrWeb.TicketLive.Index"
 
   slot :inner_block, required: true
@@ -194,15 +194,6 @@ defmodule SinkrWeb.Layouts do
           options={[
             {"Show", "true", @flags.herdr},
             {"Hide", "false", !@flags.herdr}
-          ]}
-        />
-        <.flag_row
-          label="Design"
-          flag="design"
-          server
-          options={[
-            {"Classic", "classic", @flags.design == :classic},
-            {"Calm", "calm", @flags.design == :calm}
           ]}
         />
         <.flag_row

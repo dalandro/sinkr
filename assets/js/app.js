@@ -33,7 +33,6 @@ const liveSocket = new LiveSocket("/live", Socket, {
     flags: {
       layout: localStorage.getItem("sinkr:layout"),
       show_done: localStorage.getItem("sinkr:show_done"),
-      design: localStorage.getItem("sinkr:design"),
     },
   }),
   hooks: {...colocatedHooks},

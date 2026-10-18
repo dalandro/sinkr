@@ -31,7 +31,7 @@ defmodule SinkrWeb.TicketLive.PresenceTest do
     Herdr.broadcast_workspaces([workspace(ref)])
     render(live)
 
-    assert has_element?(live, "#ticket-#{ticket.id} [data-role=presence]", "working")
+    assert has_element?(live, "#ticket-#{ticket.id} [data-role=presence][data-status=working]")
   end
 
   test "no workspace, no chip", %{conn: conn, ticket: ticket} do
@@ -74,7 +74,7 @@ defmodule SinkrWeb.TicketLive.PresenceTest do
 
     {:ok, live, _html} = live(conn, ~p"/")
 
-    assert has_element?(live, "#ticket-#{ticket.id} [data-role=presence]", "working")
+    assert has_element?(live, "#ticket-#{ticket.id} [data-role=presence][data-status=working]")
   end
 
   describe "the copy chip" do
@@ -119,7 +119,7 @@ defmodule SinkrWeb.TicketLive.PresenceTest do
       |> element("#cog-menu button[phx-value-flag=herdr][phx-value-to=true]")
       |> render_click()
 
-      assert has_element?(live, "#ticket-#{ticket.id} [data-role=presence]", "working")
+      assert has_element?(live, "#ticket-#{ticket.id} [data-role=presence][data-status=working]")
     end
   end
 end
