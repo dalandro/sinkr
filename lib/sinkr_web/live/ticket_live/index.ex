@@ -1080,10 +1080,17 @@ defmodule SinkrWeb.TicketLive.Index do
 
   defp untethered_strip(assigns) do
     ~H"""
-    <section :if={@workspaces != []} id="untethered-strip" class="space-y-2">
-      <h2 class="strip-heading text-base-content/60 text-xs font-semibold tracking-wide uppercase">
-        Untethered <span class="font-normal">{length(@workspaces)}</span>
-      </h2>
+    <details
+      :if={@workspaces != []}
+      id="untethered-strip"
+      phx-mounted={JS.ignore_attributes(["open"])}
+      class="space-y-2"
+    >
+      <summary class="cursor-pointer select-none">
+        <h2 class="strip-heading text-base-content/60 inline-flex text-xs font-semibold tracking-wide uppercase">
+          Untethered <span class="font-normal">&nbsp;{length(@workspaces)}</span>
+        </h2>
+      </summary>
 
       <div :if={@design == :calm} class="flex flex-wrap gap-2">
         <details
@@ -1155,7 +1162,7 @@ defmodule SinkrWeb.TicketLive.Index do
           </form>
         </div>
       </div>
-    </section>
+    </details>
     """
   end
 

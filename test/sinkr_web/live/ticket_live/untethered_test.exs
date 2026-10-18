@@ -53,6 +53,7 @@ defmodule SinkrWeb.TicketLive.UntetheredTest do
 
     assert has_element?(live, "#untethered-strip", "scratch")
     refute has_element?(live, "#untethered-strip", "#{ref}-fix")
+    refute has_element?(live, "details#untethered-strip[open]")
   end
 
   test "no untethered workspaces, no strip", %{conn: conn} do
