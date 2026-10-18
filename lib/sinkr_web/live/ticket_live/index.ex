@@ -42,6 +42,7 @@ defmodule SinkrWeb.TicketLive.Index do
      )
      |> load_tickets()
      |> load_reminders()
+     |> close_reminder_edit()
      |> reset_reminder_form()
      |> allow_upload(:files,
        accept: :any,
@@ -226,7 +227,7 @@ defmodule SinkrWeb.TicketLive.Index do
   end
 
   def handle_event("cancel_edit_reminder", _params, socket) do
-    {:noreply, assign(socket, editing_reminder: nil, reminder_edit_form: nil)}
+    {:noreply, close_reminder_edit(socket)}
   end
 
   def handle_event("validate_reminder_edit", %{"reminder" => params}, socket) do
@@ -240,7 +241,7 @@ defmodule SinkrWeb.TicketLive.Index do
     reminder = Reminders.get_reminder!(socket.assigns.editing_reminder)
 
     case Reminders.update_reminder(reminder, params) do
-      {:ok, _reminder} -> {:noreply, load_reminders(socket)}
+      {:ok, _reminder} -> {:noreply, socket |> load_reminders() |> close_reminder_edit()}
       {:error, changeset} -> {:noreply, assign(socket, reminder_edit_form: to_form(changeset))}
     end
   end
@@ -395,11 +396,13 @@ defmodule SinkrWeb.TicketLive.Index do
   end
 
   defp load_reminders(socket) do
-    assign(socket,
-      reminders: Reminders.list_reminders(),
-      editing_reminder: nil,
-      reminder_edit_form: nil
-    )
+    assign(socket, reminders: Reminders.list_reminders())
+  end
+
+  # A ring or a Done elsewhere reloads the list; only Save and Cancel close
+  # an edit, so what you typed survives the timer.
+  defp close_reminder_edit(socket) do
+    assign(socket, editing_reminder: nil, reminder_edit_form: nil)
   end
 
   # Same trick as `reset_composer/1`: a title input rendering "" both times

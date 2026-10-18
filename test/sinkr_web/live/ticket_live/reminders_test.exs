@@ -125,6 +125,31 @@ defmodule SinkrWeb.TicketLive.RemindersTest do
     assert has_element?(live, "#reminder-#{reminder.id}", "daily 09:00")
   end
 
+  test "a ring elsewhere leaves an edit in progress alone", %{conn: conn} do
+    {:ok, reminder} =
+      Reminders.create_reminder(%{title: "Run npx", cadence: :daily, time: ~T[09:00:00]})
+
+    {:ok, _other} =
+      Reminders.create_reminder(%{
+        title: "Check Linear inbox",
+        cadence: :daily,
+        time: ~T[08:00:00]
+      })
+
+    {:ok, live, _html} = live(conn, ~p"/")
+
+    live |> element("#reminder-#{reminder.id} button", "Edit") |> render_click()
+
+    live
+    |> form("#reminder-edit-form", %{"reminder" => %{"title" => "Run npx -g"}})
+    |> render_change()
+
+    Reminders.fire_due(~N[2026-10-19 08:30:00])
+    render(live)
+
+    assert has_element?(live, "#reminder-edit-form input[value='Run npx -g']")
+  end
+
   test "removes a reminder", %{conn: conn} do
     {:ok, reminder} =
       Reminders.create_reminder(%{title: "Run npx", cadence: :daily, time: ~T[09:00:00]})
