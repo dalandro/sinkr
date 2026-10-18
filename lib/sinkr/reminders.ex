@@ -61,18 +61,21 @@ defmodule Sinkr.Reminders do
   @doc """
   Rings everything due at `now`: stamps each with today, broadcasts the lot
   as `{:reminders_fired, reminders}`, and returns them. Nothing due, nothing
-  broadcast.
+  broadcast. Read and stamps share one transaction, so a Remove landing
+  mid-batch can't leave an earlier reminder stamped but never rung.
   """
   def fire_due(%NaiveDateTime{} = now) do
     today = NaiveDateTime.to_date(now)
 
-    fired =
-      list_reminders()
-      |> Enum.filter(&due?(&1, now))
-      |> Enum.map(fn reminder ->
-        reminder
-        |> Ecto.Changeset.change(last_fired_on: today)
-        |> Repo.update!()
+    {:ok, fired} =
+      Repo.transaction(fn ->
+        list_reminders()
+        |> Enum.filter(&due?(&1, now))
+        |> Enum.map(fn reminder ->
+          reminder
+          |> Ecto.Changeset.change(last_fired_on: today)
+          |> Repo.update!()
+        end)
       end)
 
     if fired != [], do: broadcast_fired(fired)
