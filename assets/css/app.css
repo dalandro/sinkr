@@ -129,7 +129,8 @@
 
 /* Calm design (the "Design" cog flag). The server branches markup on it;
    this is the look-only half, keyed off the attribute the pre-paint script
-   sets so the page never flashes classic first. Classic is untouched. */
+   sets. Like the layout flag, the dead render is classic until the socket
+   brings the connect params. Classic is untouched. */
 [data-design="calm"] #category-filters .btn {
   background: transparent;
   border-color: transparent;
@@ -177,12 +178,8 @@
   padding: 0.5rem 0.5rem 0.25rem;
 }
 
-[data-design="calm"] .ticket-group > ul {
-  border-top: 0;
-}
-
 [data-design="calm"] .ticket-group > ul > li {
-  border-top: 0;
+  border-bottom-width: 0;
 }
 
 [data-design="calm"] .group-heading {
@@ -192,10 +189,6 @@
   font-weight: 600;
   color: var(--color-base-content);
   margin-bottom: 0.25rem;
-}
-
-[data-design="calm"] .detail-meta {
-  font-size: 0.75rem;
 }
 
 [data-design="calm"] .detail-title {

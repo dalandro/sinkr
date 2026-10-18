@@ -644,7 +644,7 @@ defmodule SinkrWeb.TicketLive.Index do
           <div :if={is_nil(@form) && @selected} class="space-y-4">
             <h2 class="detail-title text-lg leading-snug font-semibold">{@selected.title}</h2>
 
-            <p class="detail-meta text-base-content/70 flex items-center gap-2 text-xs">
+            <p class="text-base-content/70 flex items-center gap-2 text-xs">
               <span>
                 ID: {Ticket.display_ref(@selected)} · Category: {Phoenix.Naming.humanize(
                   @selected.category
@@ -1089,6 +1089,8 @@ defmodule SinkrWeb.TicketLive.Index do
         <details
           :for={workspace <- @workspaces}
           id={"untethered-#{workspace.workspace_id}"}
+          phx-mounted={JS.ignore_attributes(["open"])}
+          phx-click-away={JS.remove_attribute("open")}
           class="dropdown"
         >
           <summary class="border-base-300 hover:bg-base-200 flex cursor-pointer list-none items-center gap-2 rounded-full border px-2.5 py-1 text-sm">
@@ -1173,8 +1175,11 @@ defmodule SinkrWeb.TicketLive.Index do
       <.link
         patch={~p"/tickets/#{Ticket.display_ref(@ticket)}"}
         class={[
-          "ticket-row hover:bg-base-300/60 flex items-center gap-2 rounded px-2 py-1.5 text-sm",
-          if(selected?(@selected, @ticket), do: "bg-base-300 ring-primary/60 ring-1", else: "")
+          "ticket-row flex items-center gap-2 rounded px-2 py-1.5 text-sm",
+          if(selected?(@selected, @ticket),
+            do: "bg-base-300 ring-primary/60 ring-1",
+            else: "hover:bg-base-300/60"
+          )
         ]}
       >
         <span
