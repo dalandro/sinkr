@@ -89,22 +89,37 @@ defmodule Sinkr.RemindersTest do
     end
   end
 
-  describe "ringing?/2 and acknowledge/2" do
-    test "fired today and not yet acknowledged is ringing" do
+  describe "ringing?/1 and acknowledge/1" do
+    test "rings from firing until acknowledged" do
       {:ok, reminder} =
         Reminders.create_reminder(%{title: "Run npx", cadence: :daily, time: ~T[09:00:00]})
 
-      refute Reminders.ringing?(reminder, ~D[2026-10-16])
+      refute Reminders.ringing?(reminder)
 
       [reminder] = Reminders.fire_due(~N[2026-10-16 09:00:00])
-      assert Reminders.ringing?(reminder, ~D[2026-10-16])
+      assert Reminders.ringing?(reminder)
 
-      {:ok, reminder} = Reminders.acknowledge(reminder, ~D[2026-10-16])
-      refute Reminders.ringing?(reminder, ~D[2026-10-16])
+      {:ok, reminder} = Reminders.acknowledge(reminder)
+      refute Reminders.ringing?(reminder)
 
       # Tomorrow's ring is tomorrow's business — yesterday's acknowledgement doesn't cover it.
       [reminder] = Reminders.fire_due(~N[2026-10-17 09:00:00])
-      assert Reminders.ringing?(reminder, ~D[2026-10-17])
+      assert Reminders.ringing?(reminder)
+    end
+
+    test "a ring nobody saw carries over to the next day" do
+      {:ok, reminder} =
+        Reminders.create_reminder(%{
+          title: "Run npx",
+          cadence: :weekly,
+          weekday: 5,
+          time: ~T[09:00:00]
+        })
+
+      [reminder] = Reminders.fire_due(~N[2026-10-16 09:00:00])
+      assert Reminders.ringing?(reminder)
+      assert [] = Reminders.fire_due(~N[2026-10-19 09:00:00])
+      assert Reminders.ringing?(Reminders.get_reminder!(reminder.id))
     end
   end
 

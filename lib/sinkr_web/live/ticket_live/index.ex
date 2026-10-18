@@ -209,7 +209,7 @@ defmodule SinkrWeb.TicketLive.Index do
   end
 
   def handle_event("acknowledge_reminder", %{"id" => id}, socket) do
-    {:ok, _reminder} = Reminders.acknowledge(Reminders.get_reminder!(id), today())
+    {:ok, _reminder} = Reminders.acknowledge(Reminders.get_reminder!(id))
 
     {:noreply, load_reminders(socket)}
   end
@@ -357,17 +357,13 @@ defmodule SinkrWeb.TicketLive.Index do
     {:noreply, load_reminders(socket)}
   end
 
-  # `today` rides along so ringing is judged against the same local day the
-  # scheduler fires on — a UTC date would ring late or early near midnight.
   defp load_reminders(socket) do
-    assign(socket, reminders: Reminders.list_reminders(), today: today())
+    assign(socket, reminders: Reminders.list_reminders())
   end
 
   defp reset_reminder_form(socket) do
     assign(socket, reminder_form: to_form(Reminders.change_reminder(%Reminder{})))
   end
-
-  defp today, do: NaiveDateTime.to_date(Reminders.local_now())
 
   defp load_tickets(socket) do
     all = Tickets.list_tickets()
@@ -529,7 +525,7 @@ defmodule SinkrWeb.TicketLive.Index do
         </button>
       </div>
 
-      <.reminders_strip reminders={@reminders} today={@today} form={@reminder_form} />
+      <.reminders_strip reminders={@reminders} form={@reminder_form} />
 
       <.untethered_strip
         :if={@flags.herdr}
@@ -916,11 +912,10 @@ defmodule SinkrWeb.TicketLive.Index do
   end
 
   # Standing nudges, kept above the list: each with when it fires, lit up
-  # from the moment it rings until you say you've seen it, and a fold at the
+  # from the moment it rings until you say Done, and a fold at the
   # end for setting another. Weekday only matters for weekly ones; the
   # changeset drops it otherwise, so the select can stay put.
   attr :reminders, :list, required: true
-  attr :today, Date, required: true
   attr :form, Phoenix.HTML.Form, required: true
 
   defp reminders_strip(assigns) do
@@ -934,17 +929,17 @@ defmodule SinkrWeb.TicketLive.Index do
         <div
           :for={reminder <- @reminders}
           id={"reminder-#{reminder.id}"}
-          data-ringing={Reminders.ringing?(reminder, @today)}
+          data-ringing={Reminders.ringing?(reminder)}
           class={[
             "flex items-center gap-2 rounded border px-2 py-1.5 text-sm",
-            if(Reminders.ringing?(reminder, @today),
+            if(Reminders.ringing?(reminder),
               do: "border-warning bg-warning/10",
               else: "border-base-300"
             )
           ]}
         >
           <.icon
-            :if={Reminders.ringing?(reminder, @today)}
+            :if={Reminders.ringing?(reminder)}
             name="hero-bell-alert"
             class="text-warning size-4 shrink-0"
           />
@@ -952,7 +947,7 @@ defmodule SinkrWeb.TicketLive.Index do
           <span class="text-base-content/60 text-xs">{Reminders.schedule_label(reminder)}</span>
 
           <button
-            :if={Reminders.ringing?(reminder, @today)}
+            :if={Reminders.ringing?(reminder)}
             type="button"
             phx-click="acknowledge_reminder"
             phx-value-id={reminder.id}

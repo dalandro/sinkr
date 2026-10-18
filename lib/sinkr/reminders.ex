@@ -6,8 +6,9 @@ defmodule Sinkr.Reminders do
   reminder means 9am where the machine is. A reminder fires at most once a
   day, from its time on — so a server that was down at 9 still rings when
   it comes up at 10, but a Friday reminder missed entirely waits for next
-  Friday. Firing is a date stamp, acknowledging is another; a reminder is
-  ringing while today's stamp is on the first and not the second.
+  Friday. Firing is a date stamp, acknowledging is another; a reminder
+  rings from the moment the two differ until you say Done, so a ring you
+  didn't see on Friday is still there on Monday.
   """
 
   import Ecto.Query, only: [from: 2]
@@ -79,15 +80,14 @@ defmodule Sinkr.Reminders do
     fired
   end
 
-  @doc "Fired today and not yet acknowledged today."
-  def ringing?(%Reminder{} = reminder, %Date{} = today) do
-    reminder.last_fired_on == today and reminder.acknowledged_on != today
-  end
+  @doc "Fired, and that ring not yet acknowledged."
+  def ringing?(%Reminder{last_fired_on: nil}), do: false
+  def ringing?(%Reminder{} = reminder), do: reminder.last_fired_on != reminder.acknowledged_on
 
-  @doc "Turns today's ring off."
-  def acknowledge(%Reminder{} = reminder, %Date{} = today) do
+  @doc "Turns the current ring off — and only that one, so tomorrow's still rings."
+  def acknowledge(%Reminder{} = reminder) do
     reminder
-    |> Ecto.Changeset.change(acknowledged_on: today)
+    |> Ecto.Changeset.change(acknowledged_on: reminder.last_fired_on)
     |> Repo.update()
   end
 
