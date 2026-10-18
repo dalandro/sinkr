@@ -28,6 +28,13 @@ defmodule Sinkr.Reminders do
     |> Repo.insert()
   end
 
+  @doc "Reschedules or renames a reminder."
+  def update_reminder(%Reminder{} = reminder, attrs) do
+    reminder
+    |> Reminder.changeset(attrs)
+    |> Repo.update()
+  end
+
   @doc "Drops a reminder for good."
   def delete_reminder(%Reminder{} = reminder), do: Repo.delete(reminder)
 

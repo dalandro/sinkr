@@ -215,6 +215,36 @@ defmodule SinkrWeb.TicketLive.Index do
     end
   end
 
+  def handle_event("edit_reminder", %{"id" => id}, socket) do
+    reminder = Reminders.get_reminder!(id)
+
+    {:noreply,
+     assign(socket,
+       editing_reminder: reminder.id,
+       reminder_edit_form: to_form(Reminders.change_reminder(reminder))
+     )}
+  end
+
+  def handle_event("cancel_edit_reminder", _params, socket) do
+    {:noreply, assign(socket, editing_reminder: nil, reminder_edit_form: nil)}
+  end
+
+  def handle_event("validate_reminder_edit", %{"reminder" => params}, socket) do
+    reminder = Reminders.get_reminder!(socket.assigns.editing_reminder)
+
+    {:noreply,
+     assign(socket, reminder_edit_form: to_form(Reminders.change_reminder(reminder, params)))}
+  end
+
+  def handle_event("update_reminder", %{"reminder" => params}, socket) do
+    reminder = Reminders.get_reminder!(socket.assigns.editing_reminder)
+
+    case Reminders.update_reminder(reminder, params) do
+      {:ok, _reminder} -> {:noreply, load_reminders(socket)}
+      {:error, changeset} -> {:noreply, assign(socket, reminder_edit_form: to_form(changeset))}
+    end
+  end
+
   def handle_event("acknowledge_reminder", %{"id" => id}, socket) do
     {:ok, _reminder} = Reminders.acknowledge(Reminders.get_reminder!(id))
 
@@ -365,7 +395,11 @@ defmodule SinkrWeb.TicketLive.Index do
   end
 
   defp load_reminders(socket) do
-    assign(socket, reminders: Reminders.list_reminders())
+    assign(socket,
+      reminders: Reminders.list_reminders(),
+      editing_reminder: nil,
+      reminder_edit_form: nil
+    )
   end
 
   # Same trick as `reset_composer/1`: a title input rendering "" both times
@@ -544,6 +578,8 @@ defmodule SinkrWeb.TicketLive.Index do
         reminders={@reminders}
         form={@reminder_form}
         form_version={@reminder_form_version}
+        editing={@editing_reminder}
+        edit_form={@reminder_edit_form}
       />
 
       <.untethered_strip
@@ -920,6 +956,9 @@ defmodule SinkrWeb.TicketLive.Index do
     required: true,
     doc: "bumped when a reminder lands, to empty the title"
 
+  attr :editing, :integer, required: true, doc: "id of the reminder being edited, if any"
+  attr :edit_form, :any, required: true
+
   defp reminders_strip(assigns) do
     ~H"""
     <section id="reminders-strip" class="space-y-2">
@@ -932,6 +971,8 @@ defmodule SinkrWeb.TicketLive.Index do
           :for={reminder <- @reminders}
           reminder={reminder}
           ringing={Reminders.ringing?(reminder)}
+          editing={@editing == reminder.id}
+          edit_form={@edit_form}
         />
       </div>
 
@@ -977,9 +1018,60 @@ defmodule SinkrWeb.TicketLive.Index do
     """
   end
 
-  # One reminder: lit up while ringing, with Done to put it out.
+  # One reminder: lit up while ringing, with Done to put it out. Edit swaps
+  # the chip for the same form the fold uses, in place.
   attr :reminder, Reminder, required: true
   attr :ringing, :boolean, required: true
+  attr :editing, :boolean, required: true
+  attr :edit_form, :any, required: true
+
+  defp reminder_chip(%{editing: true} = assigns) do
+    ~H"""
+    <.form
+      for={@edit_form}
+      id="reminder-edit-form"
+      phx-change="validate_reminder_edit"
+      phx-submit="update_reminder"
+      class="border-base-300 flex flex-wrap items-end gap-2 rounded border px-2 py-1.5"
+    >
+      <.input
+        field={@edit_form[:title]}
+        id="reminder-edit-title"
+        label="Title"
+        class="input input-sm w-56"
+      />
+      <.input
+        field={@edit_form[:cadence]}
+        id="reminder-edit-cadence"
+        type="select"
+        label="Cadence"
+        options={cadence_options()}
+        class="select select-sm w-28"
+      />
+      <.input
+        :if={weekly?(@edit_form)}
+        field={@edit_form[:weekday]}
+        id="reminder-edit-weekday"
+        type="select"
+        label="Weekday"
+        options={weekday_options()}
+        value={@edit_form[:weekday].value || 5}
+        class="select select-sm w-24"
+      />
+      <.input
+        field={@edit_form[:time]}
+        id="reminder-edit-time"
+        type="time"
+        label="Time"
+        class="input input-sm w-32"
+      />
+      <button type="submit" class="btn btn-sm mb-2">Save</button>
+      <button type="button" phx-click="cancel_edit_reminder" class="btn btn-sm btn-ghost mb-2">
+        Cancel
+      </button>
+    </.form>
+    """
+  end
 
   defp reminder_chip(assigns) do
     ~H"""
@@ -1003,6 +1095,14 @@ defmodule SinkrWeb.TicketLive.Index do
         class="btn btn-xs"
       >
         Done
+      </button>
+      <button
+        type="button"
+        phx-click="edit_reminder"
+        phx-value-id={@reminder.id}
+        class="btn btn-xs btn-ghost"
+      >
+        Edit
       </button>
       <button
         type="button"

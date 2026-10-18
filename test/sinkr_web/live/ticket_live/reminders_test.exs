@@ -84,6 +84,47 @@ defmodule SinkrWeb.TicketLive.RemindersTest do
     refute has_element?(live, "#reminder-#{reminder.id}[data-ringing]")
   end
 
+  test "edits a reminder in place", %{conn: conn} do
+    {:ok, reminder} =
+      Reminders.create_reminder(%{title: "Run npx", cadence: :daily, time: ~T[09:00:00]})
+
+    {:ok, live, _html} = live(conn, ~p"/")
+
+    live |> element("#reminder-#{reminder.id} button", "Edit") |> render_click()
+
+    live
+    |> form("#reminder-edit-form", %{"reminder" => %{"cadence" => "weekly"}})
+    |> render_change()
+
+    live
+    |> form("#reminder-edit-form", %{
+      "reminder" => %{
+        "title" => "Run npx -g",
+        "cadence" => "weekly",
+        "weekday" => "5",
+        "time" => "17:30"
+      }
+    })
+    |> render_submit()
+
+    refute has_element?(live, "#reminder-edit-form")
+    assert has_element?(live, "#reminder-#{reminder.id}", "Run npx -g")
+    assert has_element?(live, "#reminder-#{reminder.id}", "Fri 17:30")
+  end
+
+  test "cancelling an edit keeps the reminder as it was", %{conn: conn} do
+    {:ok, reminder} =
+      Reminders.create_reminder(%{title: "Run npx", cadence: :daily, time: ~T[09:00:00]})
+
+    {:ok, live, _html} = live(conn, ~p"/")
+
+    live |> element("#reminder-#{reminder.id} button", "Edit") |> render_click()
+    live |> element("#reminder-edit-form button", "Cancel") |> render_click()
+
+    refute has_element?(live, "#reminder-edit-form")
+    assert has_element?(live, "#reminder-#{reminder.id}", "daily 09:00")
+  end
+
   test "removes a reminder", %{conn: conn} do
     {:ok, reminder} =
       Reminders.create_reminder(%{title: "Run npx", cadence: :daily, time: ~T[09:00:00]})

@@ -39,6 +39,29 @@ defmodule Sinkr.RemindersTest do
     end
   end
 
+  describe "update_reminder/2" do
+    test "reschedules a reminder, dropping the weekday when it goes daily" do
+      {:ok, reminder} =
+        Reminders.create_reminder(%{
+          title: "Run npx",
+          cadence: :weekly,
+          weekday: 5,
+          time: ~T[09:00:00]
+        })
+
+      assert {:ok,
+              %Reminder{title: "Run npx -g", cadence: :daily, weekday: nil, time: ~T[17:30:00]}} =
+               Reminders.update_reminder(reminder, %{
+                 title: "Run npx -g",
+                 cadence: :daily,
+                 time: ~T[17:30:00]
+               })
+
+      assert {:error, changeset} = Reminders.update_reminder(reminder, %{title: ""})
+      assert %{title: ["can't be blank"]} = errors_on(changeset)
+    end
+  end
+
   describe "due?/2" do
     # A Friday.
     @friday_nine ~N[2026-10-16 09:00:00]
