@@ -12,7 +12,9 @@ defmodule SinkrWeb.TicketLive.TogglesTest do
 
   import Phoenix.LiveViewTest
 
+  alias Sinkr.Herdr
   alias Sinkr.Tickets
+  alias Sinkr.Tickets.Ticket
 
   setup do
     {:ok, urgent} = Tickets.create_ticket(%{title: "Fix the flaky spec", category: :bug})
@@ -32,6 +34,43 @@ defmodule SinkrWeb.TicketLive.TogglesTest do
       assert has_element?(live, "h2", "Active")
       assert has_element?(live, "h2", "Done")
       assert html =~ "Ship the report"
+    end
+  end
+
+  describe "design flag" do
+    test "calm folds a workspace's actions away and lifts the controls above the comments",
+         %{conn: conn, urgent: urgent} do
+      {:ok, live, _html} =
+        conn
+        |> put_connect_params(%{"flags" => %{"design" => "calm"}})
+        |> live(~p"/tickets/#{Ticket.display_ref(urgent)}")
+
+      Herdr.broadcast_workspaces([%{workspace_id: "w9", label: "scratch", agent_status: :idle}])
+      html = render(live)
+
+      assert has_element?(live, "#untethered-w9.dropdown summary", "scratch")
+      assert has_element?(live, "#untethered-w9 form#tether-w9")
+      assert has_element?(live, "#ticket-#{urgent.id} [data-role=priority]", "P0")
+
+      {status_at, _} = :binary.match(html, "quick-status-select")
+      {comments_at, _} = :binary.match(html, ~s(id="comments"))
+      assert status_at < comments_at
+    end
+
+    test "classic keeps the actions on the chip and the controls under the comments",
+         %{conn: conn, urgent: urgent} do
+      {:ok, live, _html} = live(conn, ~p"/tickets/#{Ticket.display_ref(urgent)}")
+
+      Herdr.broadcast_workspaces([%{workspace_id: "w9", label: "scratch", agent_status: :idle}])
+      html = render(live)
+
+      refute has_element?(live, "#untethered-w9.dropdown")
+      assert has_element?(live, "#untethered-w9 form#tether-w9")
+      refute has_element?(live, "#ticket-#{urgent.id} [data-role=priority]")
+
+      {status_at, _} = :binary.match(html, "quick-status-select")
+      {comments_at, _} = :binary.match(html, ~s(id="comments"))
+      assert status_at > comments_at
     end
   end
 
