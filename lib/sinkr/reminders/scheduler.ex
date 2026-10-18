@@ -11,6 +11,7 @@ defmodule Sinkr.Reminders.Scheduler do
   use GenServer
 
   alias Sinkr.Reminders
+  alias Sinkr.Reminders.DesktopNotifier
 
   @default_interval_ms 30_000
 
@@ -24,7 +25,7 @@ defmodule Sinkr.Reminders.Scheduler do
   def init(opts) do
     state = %{
       clock: Keyword.get(opts, :clock, &Reminders.local_now/0),
-      notifier: Keyword.get(opts, :notifier, &Sinkr.Reminders.DesktopNotifier.notify/1),
+      notifier: Keyword.get(opts, :notifier, &DesktopNotifier.notify/1),
       interval_ms: Keyword.get(opts, :interval_ms, @default_interval_ms)
     }
 
