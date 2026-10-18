@@ -1087,8 +1087,8 @@ defmodule SinkrWeb.TicketLive.Index do
       class="space-y-2"
     >
       <summary class="cursor-pointer select-none">
-        <h2 class="strip-heading text-base-content/60 inline-flex text-xs font-semibold tracking-wide uppercase">
-          Untethered <span class="font-normal">&nbsp;{length(@workspaces)}</span>
+        <h2 class="strip-heading inline-flex items-center gap-2 text-xs font-bold tracking-wide uppercase">
+          Untethered <span class="badge badge-warning badge-sm">{length(@workspaces)}</span>
         </h2>
       </summary>
 

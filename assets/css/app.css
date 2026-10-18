@@ -159,6 +159,11 @@
   color: color-mix(in oklch, var(--color-base-content) 50%, transparent);
 }
 
+[data-design="calm"] #untethered-strip .strip-heading {
+  color: var(--color-base-content);
+  font-weight: 600;
+}
+
 [data-design="calm"] #reminders-strip,
 [data-design="calm"] #untethered-strip {
   display: flex;
