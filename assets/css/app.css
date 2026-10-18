@@ -319,7 +319,31 @@
   width: 0.5rem;
   height: 0.5rem;
   border-radius: 9999px;
+  background: var(--color-neutral-content);
+}
+
+.category-dot[data-category="bug"] {
+  background: var(--color-error);
+}
+
+.category-dot[data-category="feature"] {
   background: var(--color-primary);
+}
+
+.category-dot[data-category="review"] {
+  background: var(--color-info);
+}
+
+.category-dot[data-category="experiment"] {
+  background: var(--color-accent);
+}
+
+.category-dot[data-category="chore"] {
+  background: var(--color-secondary-content);
+}
+
+.category-dot[data-category="idea"] {
+  background: var(--color-warning);
 }
 
 [data-design="linear"] .detail-meta {

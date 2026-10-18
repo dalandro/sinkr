@@ -1170,7 +1170,7 @@ defmodule SinkrWeb.TicketLive.Index do
       <dt>Category</dt>
       <dd>
         <span class="category-label">
-          <span class="category-dot"></span>
+          <span class="category-dot" data-category={@selected.category}></span>
           {Phoenix.Naming.humanize(@selected.category)}
         </span>
       </dd>
@@ -1318,7 +1318,7 @@ defmodule SinkrWeb.TicketLive.Index do
           ]}
         ></span>
         <span class="category-label">
-          <span class="category-dot"></span>
+          <span class="category-dot" data-category={@ticket.category}></span>
           {Phoenix.Naming.humanize(@ticket.category)}
         </span>
         <.status_icon status={@ticket.status} />
