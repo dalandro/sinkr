@@ -2,8 +2,8 @@ defmodule SinkrWeb.TicketLive.TogglesTest do
   @moduledoc """
   The cog menu: view preferences the browser remembers, none of them data.
 
-  Layout and show-done round-trip through the server (they change what is
-  rendered); density and thumbnails never leave the client, so all the server
+  Layout, show-done and design round-trip through the server (they change
+  what is rendered); density and thumbnails never leave the client, so all the server
   owes them is the buttons. Preferences arrive as connect params — a fresh
   mount with none gets the defaults.
   """
@@ -140,6 +140,7 @@ defmodule SinkrWeb.TicketLive.TogglesTest do
       {:ok, live, _html} = live(conn, ~p"/tickets/#{Ticket.display_ref(urgent)}")
 
       refute has_element?(live, "#ticket-#{urgent.id} [data-role=ref]")
+      assert has_element?(live, "#ticket-#{urgent.id} [data-role=priority]", "P0")
       refute has_element?(live, "#ticket-#{shipped.id} [data-role=priority]")
       refute has_element?(live, "#ticket-#{shipped.id} [data-role=status]")
       refute has_element?(live, "#ticket-properties")
