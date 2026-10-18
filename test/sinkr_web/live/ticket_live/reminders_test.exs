@@ -39,6 +39,23 @@ defmodule SinkrWeb.TicketLive.RemindersTest do
     assert has_element?(live, "#reminders-strip", "daily 09:00")
   end
 
+  test "the weekday select only shows up for weekly", %{conn: conn} do
+    {:ok, live, _html} = live(conn, ~p"/")
+    refute has_element?(live, "#reminder-form select[name='reminder[weekday]']")
+
+    live
+    |> form("#reminder-form", %{"reminder" => %{"cadence" => "weekly"}})
+    |> render_change()
+
+    assert has_element?(live, "#reminder-form select[name='reminder[weekday]']")
+
+    live
+    |> form("#reminder-form", %{"reminder" => %{"cadence" => "daily"}})
+    |> render_change()
+
+    refute has_element?(live, "#reminder-form select[name='reminder[weekday]']")
+  end
+
   test "a blank title is refused", %{conn: conn} do
     {:ok, live, _html} = live(conn, ~p"/")
 

@@ -198,6 +198,13 @@ defmodule SinkrWeb.TicketLive.Index do
     end
   end
 
+  # Keeps the form in step with what's picked, so the weekday select can
+  # follow the cadence. Validation itself waits for the submit.
+  def handle_event("validate_reminder", %{"reminder" => params}, socket) do
+    {:noreply,
+     assign(socket, reminder_form: to_form(Reminders.change_reminder(%Reminder{}, params)))}
+  end
+
   def handle_event("add_reminder", %{"reminder" => params}, socket) do
     case Reminders.create_reminder(params) do
       {:ok, _reminder} ->
@@ -444,6 +451,9 @@ defmodule SinkrWeb.TicketLive.Index do
 
   defp status_options, do: Enum.map(Ticket.statuses(), &{Phoenix.Naming.humanize(&1), &1})
   defp category_options, do: Enum.map(Ticket.categories(), &{Phoenix.Naming.humanize(&1), &1})
+  # The value is an atom fresh from the schema and a string once typed into.
+  defp weekly?(form), do: to_string(form[:cadence].value) == "weekly"
+
   defp cadence_options, do: Enum.map(Reminder.cadences(), &{Phoenix.Naming.humanize(&1), &1})
 
   defp weekday_options,
@@ -922,8 +932,8 @@ defmodule SinkrWeb.TicketLive.Index do
 
   # Standing nudges, kept above the list: each with when it fires, lit up
   # from the moment it rings until you say Done, and a fold at the
-  # end for setting another. Weekday only matters for weekly ones; the
-  # changeset drops it otherwise, so the select can stay put.
+  # end for setting another. The weekday select only shows up once you've
+  # picked weekly — daily has no weekday to ask about.
   attr :reminders, :list, required: true
   attr :form, Phoenix.HTML.Form, required: true
 
@@ -954,6 +964,7 @@ defmodule SinkrWeb.TicketLive.Index do
           <.form
             for={@form}
             id="reminder-form"
+            phx-change="validate_reminder"
             phx-submit="add_reminder"
             class="mt-2 flex flex-wrap items-end gap-2"
           >
@@ -970,6 +981,7 @@ defmodule SinkrWeb.TicketLive.Index do
               options={cadence_options()}
             />
             <.input
+              :if={weekly?(@form)}
               field={@form[:weekday]}
               type="select"
               label="Weekday"
