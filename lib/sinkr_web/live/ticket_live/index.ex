@@ -1389,7 +1389,7 @@ defmodule SinkrWeb.TicketLive.Index do
   end
 
   defp priority_glyph(assigns) do
-    assigns = assign(assigns, :lit, max(4 - assigns.priority, 0))
+    assigns = assign(assigns, :lit, 4 - assigns.priority)
 
     ~H"""
     <span data-role="priority" title={Ticket.priority_label(@priority)} class="priority-glyph">
