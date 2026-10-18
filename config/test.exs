@@ -15,6 +15,7 @@ config :sinkr, Sinkr.Repo,
 # just because a test forgot to.
 # Tests that want a herdr poller start their own, with a lister they control.
 config :sinkr, :start_herdr_poller, false
+config :sinkr, :start_reminder_scheduler, false
 
 config :sinkr, :snapshot_root, Path.join(System.tmp_dir!(), "sinkr_test_snapshots")
 

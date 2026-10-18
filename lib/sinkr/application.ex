@@ -17,7 +17,7 @@ defmodule Sinkr.Application do
         {Phoenix.PubSub, name: Sinkr.PubSub},
         # Start to serve requests, typically the last entry
         SinkrWeb.Endpoint
-      ] ++ herdr_poller()
+      ] ++ herdr_poller() ++ reminder_scheduler()
 
     # See https://elixir.hexdocs.pm/Supervisor.html
     # for other strategies and supported options
@@ -38,6 +38,16 @@ defmodule Sinkr.Application do
   defp herdr_poller do
     if Application.get_env(:sinkr, :start_herdr_poller, true) do
       [{Sinkr.Herdr.Poller, name: Sinkr.Herdr.Poller}]
+    else
+      []
+    end
+  end
+
+  # Off in test only, same as the poller: a scheduler test brings its own
+  # clock and notifier rather than ringing real reminders mid-suite.
+  defp reminder_scheduler do
+    if Application.get_env(:sinkr, :start_reminder_scheduler, true) do
+      [{Sinkr.Reminders.Scheduler, name: Sinkr.Reminders.Scheduler}]
     else
       []
     end

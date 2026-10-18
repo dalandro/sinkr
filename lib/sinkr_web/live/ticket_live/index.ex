@@ -12,6 +12,8 @@ defmodule SinkrWeb.TicketLive.Index do
 
   alias Sinkr.Herdr
   alias Sinkr.Herdr.Episode
+  alias Sinkr.Reminders
+  alias Sinkr.Reminders.Reminder
   alias Sinkr.Tickets
   alias Sinkr.Tickets.Comment
   alias Sinkr.Tickets.Sinker
@@ -25,7 +27,10 @@ defmodule SinkrWeb.TicketLive.Index do
     # Presence rides PubSub from the poller; the static render and any
     # in-between mount fall back to what the poller last saw. The herdr cog
     # flag never reaches here — hiding chips doesn't stop the ears.
-    if connected?(socket), do: Herdr.subscribe()
+    if connected?(socket) do
+      Herdr.subscribe()
+      Reminders.subscribe()
+    end
 
     {:ok,
      socket
@@ -36,6 +41,8 @@ defmodule SinkrWeb.TicketLive.Index do
        pins: Herdr.pins()
      )
      |> load_tickets()
+     |> load_reminders()
+     |> reset_reminder_form()
      |> allow_upload(:files,
        accept: :any,
        max_entries: 10,
@@ -191,6 +198,28 @@ defmodule SinkrWeb.TicketLive.Index do
     end
   end
 
+  def handle_event("add_reminder", %{"reminder" => params}, socket) do
+    case Reminders.create_reminder(params) do
+      {:ok, _reminder} ->
+        {:noreply, socket |> load_reminders() |> reset_reminder_form()}
+
+      {:error, changeset} ->
+        {:noreply, assign(socket, reminder_form: to_form(changeset))}
+    end
+  end
+
+  def handle_event("acknowledge_reminder", %{"id" => id}, socket) do
+    {:ok, _reminder} = Reminders.acknowledge(Reminders.get_reminder!(id), today())
+
+    {:noreply, load_reminders(socket)}
+  end
+
+  def handle_event("delete_reminder", %{"id" => id}, socket) do
+    {:ok, _reminder} = Reminders.delete_reminder(Reminders.get_reminder!(id))
+
+    {:noreply, load_reminders(socket)}
+  end
+
   def handle_event("delete", _params, socket) do
     {:ok, _ticket} = Tickets.delete_ticket(socket.assigns.selected)
 
@@ -323,6 +352,23 @@ defmodule SinkrWeb.TicketLive.Index do
     {:noreply, if(socket.assigns.selected, do: load_episodes(socket), else: socket)}
   end
 
+  # A ring changed the stamps; the strip should light up without a reload.
+  def handle_info({:reminders_fired, _reminders}, socket) do
+    {:noreply, load_reminders(socket)}
+  end
+
+  # `today` rides along so ringing is judged against the same local day the
+  # scheduler fires on — a UTC date would ring late or early near midnight.
+  defp load_reminders(socket) do
+    assign(socket, reminders: Reminders.list_reminders(), today: today())
+  end
+
+  defp reset_reminder_form(socket) do
+    assign(socket, reminder_form: to_form(Reminders.change_reminder(%Reminder{})))
+  end
+
+  defp today, do: NaiveDateTime.to_date(Reminders.local_now())
+
   defp load_tickets(socket) do
     all = Tickets.list_tickets()
 
@@ -397,6 +443,10 @@ defmodule SinkrWeb.TicketLive.Index do
 
   defp status_options, do: Enum.map(Ticket.statuses(), &{Phoenix.Naming.humanize(&1), &1})
   defp category_options, do: Enum.map(Ticket.categories(), &{Phoenix.Naming.humanize(&1), &1})
+  defp cadence_options, do: Enum.map(Reminder.cadences(), &{Phoenix.Naming.humanize(&1), &1})
+
+  defp weekday_options,
+    do: Enum.map(Reminder.weekdays(), fn {number, label} -> {label, number} end)
 
   defp priority_options do
     Enum.map(Ticket.priorities(), fn {level, label} -> {"P#{level} — #{label}", level} end)
@@ -478,6 +528,8 @@ defmodule SinkrWeb.TicketLive.Index do
           {Phoenix.Naming.humanize(category)}
         </button>
       </div>
+
+      <.reminders_strip reminders={@reminders} today={@today} form={@reminder_form} />
 
       <.untethered_strip
         :if={@flags.herdr}
@@ -860,6 +912,93 @@ defmodule SinkrWeb.TicketLive.Index do
         </div>
       </div>
     </Layouts.app>
+    """
+  end
+
+  # Standing nudges, kept above the list: each with when it fires, lit up
+  # from the moment it rings until you say you've seen it, and a fold at the
+  # end for setting another. Weekday only matters for weekly ones; the
+  # changeset drops it otherwise, so the select can stay put.
+  attr :reminders, :list, required: true
+  attr :today, Date, required: true
+  attr :form, Phoenix.HTML.Form, required: true
+
+  defp reminders_strip(assigns) do
+    ~H"""
+    <section id="reminders-strip" class="space-y-2">
+      <h2 class="text-base-content/60 text-xs font-semibold tracking-wide uppercase">
+        Reminders <span class="font-normal">{length(@reminders)}</span>
+      </h2>
+
+      <div class="flex flex-wrap gap-2">
+        <div
+          :for={reminder <- @reminders}
+          id={"reminder-#{reminder.id}"}
+          data-ringing={Reminders.ringing?(reminder, @today)}
+          class={[
+            "flex items-center gap-2 rounded border px-2 py-1.5 text-sm",
+            if(Reminders.ringing?(reminder, @today),
+              do: "border-warning bg-warning/10",
+              else: "border-base-300"
+            )
+          ]}
+        >
+          <.icon
+            :if={Reminders.ringing?(reminder, @today)}
+            name="hero-bell-alert"
+            class="text-warning size-4 shrink-0"
+          />
+          <span class="max-w-48 truncate" title={reminder.title}>{reminder.title}</span>
+          <span class="text-base-content/60 text-xs">{Reminders.schedule_label(reminder)}</span>
+
+          <button
+            :if={Reminders.ringing?(reminder, @today)}
+            type="button"
+            phx-click="acknowledge_reminder"
+            phx-value-id={reminder.id}
+            class="btn btn-xs"
+          >
+            Done
+          </button>
+          <button
+            type="button"
+            phx-click="delete_reminder"
+            phx-value-id={reminder.id}
+            data-confirm="Drop this reminder?"
+            class="btn btn-xs btn-ghost"
+          >
+            Remove
+          </button>
+        </div>
+
+        <details class="border-base-300 rounded border px-2 py-1.5 text-sm">
+          <summary class="cursor-pointer select-none">Add reminder</summary>
+          <.form
+            for={@form}
+            id="reminder-form"
+            phx-submit="add_reminder"
+            class="mt-2 flex flex-wrap items-end gap-2"
+          >
+            <.input field={@form[:title]} label="Title" placeholder="Check Linear inbox" />
+            <.input
+              field={@form[:cadence]}
+              type="select"
+              label="Cadence"
+              options={cadence_options()}
+            />
+            <.input
+              field={@form[:weekday]}
+              type="select"
+              label="Weekday"
+              options={weekday_options()}
+              value={@form[:weekday].value || 5}
+            />
+            <.input field={@form[:time]} type="time" label="Time" />
+            <button type="submit" class="btn btn-xs">Set</button>
+          </.form>
+        </details>
+      </div>
+    </section>
     """
   end
 
