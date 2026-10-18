@@ -1139,15 +1139,15 @@ defmodule SinkrWeb.TicketLive.Index do
       <dd>
         <.status_icon status={@selected.status} />
         <form phx-change="set_status" id="quick-status">
-          <select id="quick-status-select" name="status" class="property-select">
-            <option
-              :for={{label, value} <- status_options()}
-              value={value}
-              selected={value == @selected.status}
-            >
-              {label}
-            </option>
-          </select>
+          <.input
+            type="select"
+            id="quick-status-select"
+            name="status"
+            aria-label="Status"
+            value={@selected.status}
+            options={status_options()}
+            class="property-select"
+          />
         </form>
       </dd>
 
@@ -1155,15 +1155,15 @@ defmodule SinkrWeb.TicketLive.Index do
       <dd>
         <.priority_glyph priority={@selected.priority} />
         <form phx-change="set_priority" id="quick-priority">
-          <select id="quick-priority-select" name="priority" class="property-select">
-            <option
-              :for={{label, value} <- priority_options()}
-              value={value}
-              selected={value == @selected.priority}
-            >
-              {label}
-            </option>
-          </select>
+          <.input
+            type="select"
+            id="quick-priority-select"
+            name="priority"
+            aria-label="Priority"
+            value={@selected.priority}
+            options={priority_options()}
+            class="property-select"
+          />
         </form>
       </dd>
 
@@ -1411,6 +1411,7 @@ defmodule SinkrWeb.TicketLive.Index do
     <svg
       data-role="status"
       data-status={@status}
+      role="img"
       viewBox="0 0 14 14"
       class={["status-icon shrink-0", status_text(@status)]}
       aria-label={Phoenix.Naming.humanize(@status)}

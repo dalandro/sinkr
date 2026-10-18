@@ -349,6 +349,11 @@
   min-height: 1.75rem;
 }
 
+.property-list .fieldset {
+  margin: 0;
+  padding: 0;
+}
+
 .property-select {
   appearance: none;
   background: transparent;
