@@ -361,8 +361,13 @@ defmodule SinkrWeb.TicketLive.Index do
     assign(socket, reminders: Reminders.list_reminders())
   end
 
+  # Same trick as `reset_composer/1`: a title input rendering "" both times
+  # never re-patches, so only a new DOM node actually empties it.
   defp reset_reminder_form(socket) do
-    assign(socket, reminder_form: to_form(Reminders.change_reminder(%Reminder{})))
+    assign(socket,
+      reminder_form: to_form(Reminders.change_reminder(%Reminder{})),
+      reminder_form_version: System.unique_integer([:positive, :monotonic])
+    )
   end
 
   defp load_tickets(socket) do
@@ -525,7 +530,11 @@ defmodule SinkrWeb.TicketLive.Index do
         </button>
       </div>
 
-      <.reminders_strip reminders={@reminders} form={@reminder_form} />
+      <.reminders_strip
+        reminders={@reminders}
+        form={@reminder_form}
+        form_version={@reminder_form_version}
+      />
 
       <.untethered_strip
         :if={@flags.herdr}
@@ -918,6 +927,10 @@ defmodule SinkrWeb.TicketLive.Index do
   attr :reminders, :list, required: true
   attr :form, Phoenix.HTML.Form, required: true
 
+  attr :form_version, :integer,
+    required: true,
+    doc: "bumped when a reminder lands, to empty the title"
+
   defp reminders_strip(assigns) do
     ~H"""
     <section id="reminders-strip" class="space-y-2">
@@ -974,7 +987,12 @@ defmodule SinkrWeb.TicketLive.Index do
             phx-submit="add_reminder"
             class="mt-2 flex flex-wrap items-end gap-2"
           >
-            <.input field={@form[:title]} label="Title" placeholder="Check Linear inbox" />
+            <.input
+              field={@form[:title]}
+              id={"reminder-title-#{@form_version}"}
+              label="Title"
+              placeholder="Check Linear inbox"
+            />
             <.input
               field={@form[:cadence]}
               type="select"
