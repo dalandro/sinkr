@@ -979,7 +979,11 @@ defmodule SinkrWeb.TicketLive.Index do
           </button>
         </div>
 
-        <details class="border-base-300 rounded border px-2 py-1.5 text-sm">
+        <details
+          id="add-reminder"
+          phx-mounted={JS.ignore_attributes(["open"])}
+          class="border-base-300 rounded border px-2 py-1.5 text-sm"
+        >
           <summary class="cursor-pointer select-none">Add reminder</summary>
           <.form
             for={@form}
