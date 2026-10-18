@@ -205,3 +205,170 @@
   font-weight: 600;
   color: color-mix(in oklch, var(--color-base-content) 75%, transparent);
 }
+
+/* Linear look (the "Design" cog flag): denser type, hairline rows, status
+   header strips instead of cards, properties as a key/value list. */
+[data-design="linear"] body {
+  font-size: 0.8125rem;
+}
+
+[data-design="linear"] #category-filters {
+  border-bottom: 0;
+  gap: 0.375rem;
+}
+
+[data-design="linear"] #category-filters .btn {
+  border: 1px solid var(--color-base-300);
+  border-radius: 0.375rem;
+  padding-inline: 0.5rem;
+  height: 1.5rem;
+  font-weight: 500;
+}
+
+[data-design="linear"] #category-filters .btn.btn-primary {
+  background: var(--color-base-200);
+  border-color: var(--color-base-300);
+}
+
+[data-design="linear"] .ticket-group {
+  background: transparent;
+  border-radius: 0;
+  padding: 0;
+}
+
+[data-design="linear"] .ticket-group > summary {
+  background: color-mix(in oklch, var(--color-base-200) 80%, transparent);
+  border-radius: 0.375rem;
+  padding: 0.25rem 0.5rem;
+}
+
+[data-design="linear"] .group-heading {
+  font-size: 0.75rem;
+  font-weight: 500;
+  margin-bottom: 0;
+}
+
+[data-design="linear"] .ticket-group > ul > li {
+  border-bottom-width: 1px;
+}
+
+[data-design="linear"] .ticket-group > ul > li:last-child {
+  border-bottom-width: 0;
+}
+
+[data-design="linear"] .issue-row {
+  height: 2rem;
+  font-size: 0.8125rem;
+  border-radius: 0.25rem;
+}
+
+[data-density="compact"][data-design="linear"] .issue-row {
+  height: 1.75rem;
+  font-size: 0.75rem;
+}
+
+.priority-glyph {
+  display: inline-flex;
+  align-items: flex-end;
+  gap: 1.5px;
+  width: 0.875rem;
+  height: 0.875rem;
+  flex-shrink: 0;
+}
+
+.priority-glyph .bar {
+  width: 3px;
+  border-radius: 1px;
+  background: color-mix(in oklch, var(--color-base-content) 22%, transparent);
+}
+
+.priority-glyph .bar.lit {
+  background: color-mix(in oklch, var(--color-base-content) 75%, transparent);
+}
+
+.priority-glyph.urgent {
+  align-items: center;
+  justify-content: center;
+  border-radius: 2px;
+  background: var(--color-warning);
+  color: var(--color-warning-content);
+  font-size: 0.625rem;
+  font-weight: 700;
+  line-height: 1;
+}
+
+.status-icon {
+  width: 0.875rem;
+  height: 0.875rem;
+}
+
+.category-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.375rem;
+  flex-shrink: 0;
+  border: 1px solid var(--color-base-300);
+  border-radius: 9999px;
+  padding: 0 0.5rem;
+  height: 1.25rem;
+  font-size: 0.6875rem;
+  color: color-mix(in oklch, var(--color-base-content) 70%, transparent);
+}
+
+.category-dot {
+  width: 0.5rem;
+  height: 0.5rem;
+  border-radius: 9999px;
+  background: var(--color-primary);
+}
+
+[data-design="linear"] .detail-meta {
+  display: none;
+}
+
+[data-design="linear"] .detail-title {
+  font-size: 1.125rem;
+}
+
+.property-list {
+  display: grid;
+  grid-template-columns: 5.5rem 1fr;
+  row-gap: 0.375rem;
+  align-items: center;
+  font-size: 0.8125rem;
+}
+
+.property-list dt {
+  color: color-mix(in oklch, var(--color-base-content) 55%, transparent);
+}
+
+.property-list dd {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  min-height: 1.75rem;
+}
+
+.property-select {
+  appearance: none;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 0.375rem;
+  padding: 0.125rem 0.375rem;
+  font: inherit;
+  color: inherit;
+  cursor: pointer;
+}
+
+.property-select:hover,
+.property-select:focus {
+  border-color: var(--color-base-300);
+  background: var(--color-base-200);
+  outline: none;
+}
+
+[data-design="linear"] .section-heading,
+[data-design="linear"] .strip-heading {
+  font-size: 0.75rem;
+  font-weight: 500;
+}

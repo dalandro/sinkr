@@ -13,6 +13,7 @@ defmodule SinkrWeb.TicketLive.TogglesTest do
   import Phoenix.LiveViewTest
 
   alias Sinkr.Tickets
+  alias Sinkr.Tickets.Ticket
 
   setup do
     {:ok, urgent} = Tickets.create_ticket(%{title: "Fix the flaky spec", category: :bug})
@@ -112,6 +113,56 @@ defmodule SinkrWeb.TicketLive.TogglesTest do
       assert has_element?(live, "#cog-menu button[data-flag=density]")
       assert has_element?(live, "#cog-menu button[data-flag=thumbs]")
       refute has_element?(live, "#cog-menu button[data-flag=density][phx-value-flag]")
+    end
+  end
+
+  describe "design flag" do
+    test "linear gives every row its identifier and priority bars, and lists properties",
+         %{conn: conn, urgent: urgent, shipped: shipped} do
+      {:ok, live, _html} =
+        conn
+        |> put_connect_params(%{"flags" => %{"design" => "linear"}})
+        |> live(~p"/tickets/#{Ticket.display_ref(urgent)}")
+
+      assert has_element?(
+               live,
+               "#ticket-#{urgent.id} [data-role=ref]",
+               Ticket.display_ref(urgent)
+             )
+
+      assert has_element?(live, "#ticket-#{shipped.id} [data-role=priority]")
+      assert has_element?(live, "#ticket-#{shipped.id} [data-role=status][data-status=done]")
+      assert has_element?(live, "#ticket-properties #quick-status-select")
+    end
+
+    test "calm keeps rows to a title and only flags urgent priorities",
+         %{conn: conn, urgent: urgent, shipped: shipped} do
+      {:ok, live, _html} = live(conn, ~p"/tickets/#{Ticket.display_ref(urgent)}")
+
+      refute has_element?(live, "#ticket-#{urgent.id} [data-role=ref]")
+      refute has_element?(live, "#ticket-#{shipped.id} [data-role=priority]")
+      refute has_element?(live, "#ticket-#{shipped.id} [data-role=status]")
+      refute has_element?(live, "#ticket-properties")
+      assert has_element?(live, "#quick-status-select")
+    end
+
+    test "switching to linear re-renders the list live", %{conn: conn, urgent: urgent} do
+      {:ok, live, _html} = live(conn, ~p"/")
+
+      live
+      |> element("#cog-menu button[phx-value-flag=design][phx-value-to=linear]")
+      |> render_click()
+
+      assert has_element?(live, "#ticket-#{urgent.id} [data-role=ref]")
+    end
+
+    test "a junk design means calm", %{conn: conn, urgent: urgent} do
+      {:ok, live, _html} =
+        conn
+        |> put_connect_params(%{"flags" => %{"design" => "neon"}})
+        |> live(~p"/")
+
+      refute has_element?(live, "#ticket-#{urgent.id} [data-role=ref]")
     end
   end
 end

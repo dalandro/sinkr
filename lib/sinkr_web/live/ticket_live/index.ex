@@ -434,7 +434,7 @@ defmodule SinkrWeb.TicketLive.Index do
   defp filter_by_show_done(tickets, true), do: tickets
   defp filter_by_show_done(tickets, false), do: Enum.reject(tickets, &(&1.status == :done))
 
-  defp default_flags, do: %{layout: :grouped, show_done: true, herdr: true}
+  defp default_flags, do: %{layout: :grouped, show_done: true, herdr: true, design: :calm}
 
   defp parse_flags(flags) when is_map(flags) do
     Enum.reduce(flags, default_flags(), fn {flag, to}, acc -> merge_flag(acc, flag, to) end)
@@ -450,6 +450,8 @@ defmodule SinkrWeb.TicketLive.Index do
   defp merge_flag(flags, "show_done", "false"), do: %{flags | show_done: false}
   defp merge_flag(flags, "herdr", "true"), do: %{flags | herdr: true}
   defp merge_flag(flags, "herdr", "false"), do: %{flags | herdr: false}
+  defp merge_flag(flags, "design", "calm"), do: %{flags | design: :calm}
+  defp merge_flag(flags, "design", "linear"), do: %{flags | design: :linear}
   defp merge_flag(flags, _flag, _to), do: flags
 
   # Reloading the log closes any in-progress edit — the log changed under it.
@@ -600,6 +602,7 @@ defmodule SinkrWeb.TicketLive.Index do
               ticket={ticket}
               selected={@selected}
               presence={presence_for(@flags, ticket, @workspaces, @pins)}
+              design={@flags.design}
             />
           </ul>
 
@@ -623,6 +626,7 @@ defmodule SinkrWeb.TicketLive.Index do
                 ticket={ticket}
                 selected={@selected}
                 presence={presence_for(@flags, ticket, @workspaces, @pins)}
+                design={@flags.design}
               />
             </ul>
           </details>
@@ -661,7 +665,7 @@ defmodule SinkrWeb.TicketLive.Index do
           <div :if={is_nil(@form) && @selected} class="space-y-4">
             <h2 class="detail-title text-lg leading-snug font-semibold">{@selected.title}</h2>
 
-            <p class="text-base-content/70 flex items-center gap-2 text-xs">
+            <p class="detail-meta text-base-content/70 flex items-center gap-2 text-xs">
               <span>
                 ID: {Ticket.display_ref(@selected)} · Category: {Phoenix.Naming.humanize(
                   @selected.category
@@ -707,7 +711,7 @@ defmodule SinkrWeb.TicketLive.Index do
               }
             </script>
 
-            <.quick_controls selected={@selected} />
+            <.quick_controls selected={@selected} design={@flags.design} />
 
             <.form for={@comment_form} id="new-comment" phx-submit="add_comment" class="space-y-1">
               <textarea
@@ -1120,6 +1124,58 @@ defmodule SinkrWeb.TicketLive.Index do
   # Status and priority, the two things you set on a ticket by hand, under
   # the title where a control reads as a control rather than a footer.
   attr :selected, Ticket, required: true
+  attr :design, :atom, required: true
+
+  # Linear lays properties out as a key/value list, the control dressed as
+  # its value until you reach for it.
+  defp quick_controls(%{design: :linear} = assigns) do
+    ~H"""
+    <dl id="ticket-properties" class="property-list">
+      <dt>Status</dt>
+      <dd>
+        <.status_icon status={@selected.status} />
+        <form phx-change="set_status" id="quick-status">
+          <select id="quick-status-select" name="status" class="property-select">
+            <option
+              :for={{label, value} <- status_options()}
+              value={value}
+              selected={value == @selected.status}
+            >
+              {label}
+            </option>
+          </select>
+        </form>
+      </dd>
+
+      <dt>Priority</dt>
+      <dd>
+        <.priority_glyph priority={@selected.priority} />
+        <form phx-change="set_priority" id="quick-priority">
+          <select id="quick-priority-select" name="priority" class="property-select">
+            <option
+              :for={{label, value} <- priority_options()}
+              value={value}
+              selected={value == @selected.priority}
+            >
+              {label}
+            </option>
+          </select>
+        </form>
+      </dd>
+
+      <dt>Category</dt>
+      <dd>
+        <span class="category-label">
+          <span class="category-dot"></span>
+          {Phoenix.Naming.humanize(@selected.category)}
+        </span>
+      </dd>
+
+      <dt>ID</dt>
+      <dd class="font-mono">{Ticket.display_ref(@selected)}</dd>
+    </dl>
+    """
+  end
 
   defp quick_controls(assigns) do
     ~H"""
@@ -1214,6 +1270,44 @@ defmodule SinkrWeb.TicketLive.Index do
   attr :ticket, Ticket, required: true
   attr :selected, :any, required: true
   attr :presence, :list, required: true, doc: "workspaces wearing this ticket's ref right now"
+  attr :design, :atom, required: true
+
+  # Linear's issue row: priority bars, the identifier in mono, the title,
+  # then the label and the status glyph out at the right edge.
+  defp ticket_row(%{design: :linear} = assigns) do
+    ~H"""
+    <li id={"ticket-#{@ticket.id}"}>
+      <.link
+        patch={~p"/tickets/#{Ticket.display_ref(@ticket)}"}
+        class={[
+          "ticket-row issue-row flex items-center gap-2.5 px-2",
+          if(selected?(@selected, @ticket), do: "bg-base-200", else: "hover:bg-base-200/60")
+        ]}
+      >
+        <.priority_glyph priority={@ticket.priority} />
+        <span data-role="ref" class="text-base-content/45 w-10 shrink-0 font-mono text-xs">
+          {Ticket.display_ref(@ticket)}
+        </span>
+        <span class="min-w-0 flex-1 truncate">{@ticket.title}</span>
+        <span
+          :for={workspace <- @presence}
+          data-role="presence"
+          data-status={workspace.agent_status}
+          title={"#{workspace.label} · #{workspace.agent_status}"}
+          class={[
+            "size-2 shrink-0 rounded-full",
+            presence_dot(workspace.agent_status)
+          ]}
+        ></span>
+        <span class="category-label">
+          <span class="category-dot"></span>
+          {Phoenix.Naming.humanize(@ticket.category)}
+        </span>
+        <.status_icon status={@ticket.status} />
+      </.link>
+    </li>
+    """
+  end
 
   # A row says little: the category sits off to the right, priority only
   # speaks up when it's urgent, and an idle workspace is a hollow dot rather
@@ -1263,4 +1357,79 @@ defmodule SinkrWeb.TicketLive.Index do
     </li>
     """
   end
+
+  # Linear's priority signal: P0 an urgent box, then three bars draining as
+  # the number climbs.
+  attr :priority, :integer, required: true
+
+  defp priority_glyph(%{priority: 0} = assigns) do
+    ~H"""
+    <span data-role="priority" title={Ticket.priority_label(0)} class="priority-glyph urgent">
+      !
+    </span>
+    """
+  end
+
+  defp priority_glyph(assigns) do
+    assigns = assign(assigns, :lit, max(4 - assigns.priority, 0))
+
+    ~H"""
+    <span data-role="priority" title={Ticket.priority_label(@priority)} class="priority-glyph">
+      <span
+        :for={bar <- 1..3}
+        class={["bar", bar <= @lit && "lit"]}
+        style={"height: #{bar * 3 + 2}px"}
+      ></span>
+    </span>
+    """
+  end
+
+  # Linear's status ring: empty for queued, half for active, crossed for
+  # blocked, dashed for parked, checked for done.
+  attr :status, :atom, required: true
+
+  defp status_icon(assigns) do
+    ~H"""
+    <svg
+      data-role="status"
+      data-status={@status}
+      viewBox="0 0 14 14"
+      class={["status-icon shrink-0", status_text(@status)]}
+      aria-label={Phoenix.Naming.humanize(@status)}
+    >
+      <circle
+        cx="7"
+        cy="7"
+        r="5.5"
+        fill="none"
+        stroke="currentColor"
+        stroke-width="1.5"
+        stroke-dasharray={if @status == :parked, do: "2 2"}
+      />
+      <path :if={@status == :active} d="M7 1.5a5.5 5.5 0 0 1 0 11z" fill="currentColor" />
+      <path
+        :if={@status == :blocked}
+        d="M4.8 4.8l4.4 4.4M9.2 4.8l-4.4 4.4"
+        stroke="currentColor"
+        stroke-width="1.5"
+        stroke-linecap="round"
+      />
+      <path
+        :if={@status == :done}
+        d="M4.5 7.2l1.8 1.8 3.2-3.6"
+        fill="none"
+        stroke="currentColor"
+        stroke-width="1.5"
+        stroke-linecap="round"
+        stroke-linejoin="round"
+      />
+    </svg>
+    """
+  end
+
+  defp status_text(:active), do: "text-success"
+  defp status_text(:blocked), do: "text-error"
+  defp status_text(:queued), do: "text-info"
+  defp status_text(:parked), do: "text-warning"
+  defp status_text(:done), do: "text-base-content/40"
 end
