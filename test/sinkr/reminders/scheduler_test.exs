@@ -33,19 +33,25 @@ defmodule Sinkr.Reminders.SchedulerTest do
     assert_receive {:notified, "Run npx"}
   end
 
-  test "keeps checking on the interval, firing at most once a day" do
+  test "keeps checking on the interval, firing once per day" do
     Reminders.subscribe()
     test_pid = self()
+    # Each tick reads one day later than the last, so a second ring proves
+    # the timer re-armed rather than the first tick firing twice.
+    {:ok, days} = Agent.start_link(fn -> 0 end)
 
     start_supervised!(
       {Scheduler,
-       clock: fn -> ~N[2026-10-16 09:00:00] end,
+       clock: fn ->
+         day = Agent.get_and_update(days, &{&1, &1 + 1})
+         NaiveDateTime.add(~N[2026-10-16 09:00:00], day, :day)
+       end,
        notifier: fn title -> send(test_pid, {:notified, title}) end,
        interval_ms: 10}
     )
 
     assert_receive {:notified, "Run npx"}
-    refute_receive {:notified, _}, 50
+    assert_receive {:notified, "Run npx"}
   end
 
   test "nothing due, nothing said" do
