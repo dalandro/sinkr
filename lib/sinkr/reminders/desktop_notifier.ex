@@ -17,7 +17,7 @@ defmodule Sinkr.Reminders.DesktopNotifier do
         Logger.warning("reminder not shown on desktop: notify-send not found")
 
       notify_send ->
-        case System.cmd(notify_send, ["--app-name", @app_name, "Reminder", title],
+        case System.cmd(notify_send, ["--app-name", @app_name, "--", "Reminder", title],
                stderr_to_stdout: true
              ) do
           {_output, 0} ->
