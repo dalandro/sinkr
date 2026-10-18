@@ -939,45 +939,11 @@ defmodule SinkrWeb.TicketLive.Index do
       </h2>
 
       <div class="flex flex-wrap gap-2">
-        <div
+        <.reminder_chip
           :for={reminder <- @reminders}
-          id={"reminder-#{reminder.id}"}
-          data-ringing={Reminders.ringing?(reminder)}
-          class={[
-            "flex items-center gap-2 rounded border px-2 py-1.5 text-sm",
-            if(Reminders.ringing?(reminder),
-              do: "border-warning bg-warning/10",
-              else: "border-base-300"
-            )
-          ]}
-        >
-          <.icon
-            :if={Reminders.ringing?(reminder)}
-            name="hero-bell-alert"
-            class="text-warning size-4 shrink-0"
-          />
-          <span class="max-w-48 truncate" title={reminder.title}>{reminder.title}</span>
-          <span class="text-base-content/60 text-xs">{Reminders.schedule_label(reminder)}</span>
-
-          <button
-            :if={Reminders.ringing?(reminder)}
-            type="button"
-            phx-click="acknowledge_reminder"
-            phx-value-id={reminder.id}
-            class="btn btn-xs"
-          >
-            Done
-          </button>
-          <button
-            type="button"
-            phx-click="delete_reminder"
-            phx-value-id={reminder.id}
-            data-confirm="Drop this reminder?"
-            class="btn btn-xs btn-ghost"
-          >
-            Remove
-          </button>
-        </div>
+          reminder={reminder}
+          ringing={Reminders.ringing?(reminder)}
+        />
 
         <details
           id="add-reminder"
@@ -1016,6 +982,46 @@ defmodule SinkrWeb.TicketLive.Index do
         </details>
       </div>
     </section>
+    """
+  end
+
+  # One reminder: lit up while ringing, with Done to put it out.
+  attr :reminder, Reminder, required: true
+  attr :ringing, :boolean, required: true
+
+  defp reminder_chip(assigns) do
+    ~H"""
+    <div
+      id={"reminder-#{@reminder.id}"}
+      data-ringing={@ringing}
+      class={[
+        "flex items-center gap-2 rounded border px-2 py-1.5 text-sm",
+        if(@ringing, do: "border-warning bg-warning/10", else: "border-base-300")
+      ]}
+    >
+      <.icon :if={@ringing} name="hero-bell-alert" class="text-warning size-4 shrink-0" />
+      <span class="max-w-48 truncate" title={@reminder.title}>{@reminder.title}</span>
+      <span class="text-base-content/60 text-xs">{Reminders.schedule_label(@reminder)}</span>
+
+      <button
+        :if={@ringing}
+        type="button"
+        phx-click="acknowledge_reminder"
+        phx-value-id={@reminder.id}
+        class="btn btn-xs"
+      >
+        Done
+      </button>
+      <button
+        type="button"
+        phx-click="delete_reminder"
+        phx-value-id={@reminder.id}
+        data-confirm="Drop this reminder?"
+        class="btn btn-xs btn-ghost"
+      >
+        Remove
+      </button>
+    </div>
     """
   end
 
