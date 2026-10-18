@@ -119,10 +119,7 @@ defmodule SinkrWeb.TicketLive.TogglesTest do
   describe "design flag" do
     test "linear gives every row its identifier and priority bars, and lists properties",
          %{conn: conn, urgent: urgent, shipped: shipped} do
-      {:ok, live, _html} =
-        conn
-        |> put_connect_params(%{"flags" => %{"design" => "linear"}})
-        |> live(~p"/tickets/#{Ticket.display_ref(urgent)}")
+      {:ok, live, _html} = live(conn, ~p"/tickets/#{Ticket.display_ref(urgent)}")
 
       assert has_element?(
                live,
@@ -137,7 +134,10 @@ defmodule SinkrWeb.TicketLive.TogglesTest do
 
     test "calm keeps rows to a title and only flags urgent priorities",
          %{conn: conn, urgent: urgent, shipped: shipped} do
-      {:ok, live, _html} = live(conn, ~p"/tickets/#{Ticket.display_ref(urgent)}")
+      {:ok, live, _html} =
+        conn
+        |> put_connect_params(%{"flags" => %{"design" => "calm"}})
+        |> live(~p"/tickets/#{Ticket.display_ref(urgent)}")
 
       refute has_element?(live, "#ticket-#{urgent.id} [data-role=ref]")
       assert has_element?(live, "#ticket-#{urgent.id} [data-role=priority]", "P0")
@@ -147,23 +147,23 @@ defmodule SinkrWeb.TicketLive.TogglesTest do
       assert has_element?(live, "#quick-status-select")
     end
 
-    test "switching to linear re-renders the list live", %{conn: conn, urgent: urgent} do
+    test "switching to calm re-renders the list live", %{conn: conn, urgent: urgent} do
       {:ok, live, _html} = live(conn, ~p"/")
 
       live
-      |> element("#cog-menu button[phx-value-flag=design][phx-value-to=linear]")
+      |> element("#cog-menu button[phx-value-flag=design][phx-value-to=calm]")
       |> render_click()
 
-      assert has_element?(live, "#ticket-#{urgent.id} [data-role=ref]")
+      refute has_element?(live, "#ticket-#{urgent.id} [data-role=ref]")
     end
 
-    test "a junk design means calm", %{conn: conn, urgent: urgent} do
+    test "a junk design means linear", %{conn: conn, urgent: urgent} do
       {:ok, live, _html} =
         conn
         |> put_connect_params(%{"flags" => %{"design" => "neon"}})
         |> live(~p"/")
 
-      refute has_element?(live, "#ticket-#{urgent.id} [data-role=ref]")
+      assert has_element?(live, "#ticket-#{urgent.id} [data-role=ref]")
     end
   end
 end

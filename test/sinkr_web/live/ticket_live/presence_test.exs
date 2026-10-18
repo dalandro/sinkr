@@ -94,10 +94,7 @@ defmodule SinkrWeb.TicketLive.PresenceTest do
     end
 
     test "linear keeps the chip, in its ID row", %{conn: conn, ref: ref} do
-      {:ok, live, _html} =
-        conn
-        |> put_connect_params(%{"flags" => %{"design" => "linear"}})
-        |> live(~p"/tickets/#{ref}")
+      {:ok, live, _html} = live(conn, ~p"/tickets/#{ref}")
 
       assert has_element?(
                live,

@@ -437,7 +437,7 @@ defmodule SinkrWeb.TicketLive.Index do
   defp filter_by_show_done(tickets, true), do: tickets
   defp filter_by_show_done(tickets, false), do: Enum.reject(tickets, &(&1.status == :done))
 
-  defp default_flags, do: %{layout: :grouped, show_done: true, herdr: true, design: :calm}
+  defp default_flags, do: %{layout: :grouped, show_done: true, herdr: true, design: :linear}
 
   defp parse_flags(flags) when is_map(flags) do
     Enum.reduce(flags, default_flags(), fn {flag, to}, acc -> merge_flag(acc, flag, to) end)

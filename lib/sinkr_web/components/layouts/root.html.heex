@@ -41,7 +41,7 @@
         document.documentElement.setAttribute("data-thumbs", localStorage.getItem("sinkr:thumbs") || "on");
         // Design is both: the server branches markup on it, and the CSS half
         // keys off this attribute.
-        document.documentElement.setAttribute("data-design", localStorage.getItem("sinkr:design") || "calm");
+        document.documentElement.setAttribute("data-design", localStorage.getItem("sinkr:design") || "linear");
 
         window.addEventListener("sinkr:set-flag", (e) => {
           const {flag, to} = e.target.dataset;
