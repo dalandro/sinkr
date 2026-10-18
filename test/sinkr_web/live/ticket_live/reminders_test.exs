@@ -69,6 +69,23 @@ defmodule SinkrWeb.TicketLive.RemindersTest do
     assert html =~ "can&#39;t be blank"
   end
 
+  test "a blank title is refused on edit", %{conn: conn} do
+    {:ok, reminder} =
+      Reminders.create_reminder(%{title: "Run npx", cadence: :daily, time: ~T[09:00:00]})
+
+    {:ok, live, _html} = live(conn, ~p"/")
+
+    live |> element("#reminder-#{reminder.id} button", "Edit") |> render_click()
+
+    html =
+      live
+      |> form("#reminder-edit-form", %{"reminder" => %{"title" => ""}})
+      |> render_submit()
+
+    assert html =~ "can&#39;t be blank"
+    assert has_element?(live, "#reminder-edit-form")
+  end
+
   test "a ring lights the reminder up until acknowledged", %{conn: conn} do
     {:ok, reminder} =
       Reminders.create_reminder(%{title: "Run npx", cadence: :daily, time: ~T[00:00:00]})
