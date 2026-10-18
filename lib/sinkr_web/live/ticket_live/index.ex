@@ -954,45 +954,46 @@ defmodule SinkrWeb.TicketLive.Index do
           reminder={reminder}
           ringing={Reminders.ringing?(reminder)}
         />
-
-        <details
-          id="add-reminder"
-          phx-mounted={JS.ignore_attributes(["open"])}
-          class="border-base-300 rounded border px-2 py-1.5 text-sm"
-        >
-          <summary class="cursor-pointer select-none">Add reminder</summary>
-          <.form
-            for={@form}
-            id="reminder-form"
-            phx-change="validate_reminder"
-            phx-submit="add_reminder"
-            class="mt-2 flex flex-wrap items-end gap-2"
-          >
-            <.input
-              field={@form[:title]}
-              id={"reminder-title-#{@form_version}"}
-              label="Title"
-              placeholder="Check Linear inbox"
-            />
-            <.input
-              field={@form[:cadence]}
-              type="select"
-              label="Cadence"
-              options={cadence_options()}
-            />
-            <.input
-              :if={weekly?(@form)}
-              field={@form[:weekday]}
-              type="select"
-              label="Weekday"
-              options={weekday_options()}
-              value={@form[:weekday].value || 5}
-            />
-            <.input field={@form[:time]} type="time" label="Time" />
-            <button type="submit" class="btn btn-xs">Set</button>
-          </.form>
-        </details>
       </div>
+
+      <details id="add-reminder" phx-mounted={JS.ignore_attributes(["open"])} class="text-sm">
+        <summary class="text-base-content/70 cursor-pointer select-none text-xs">
+          Add reminder
+        </summary>
+        <.form
+          for={@form}
+          id="reminder-form"
+          phx-change="validate_reminder"
+          phx-submit="add_reminder"
+          class="mt-1 flex flex-wrap items-end gap-2"
+        >
+          <.input
+            field={@form[:title]}
+            id={"reminder-title-#{@form_version}"}
+            label="Title"
+            placeholder="Check Linear inbox"
+            class="input input-sm w-56"
+          />
+          <.input
+            field={@form[:cadence]}
+            type="select"
+            label="Cadence"
+            options={cadence_options()}
+            class="select select-sm w-28"
+          />
+          <.input
+            :if={weekly?(@form)}
+            field={@form[:weekday]}
+            type="select"
+            label="Weekday"
+            options={weekday_options()}
+            value={@form[:weekday].value || 5}
+            class="select select-sm w-24"
+          />
+          <.input field={@form[:time]} type="time" label="Time" class="input input-sm w-32" />
+          <button type="submit" class="btn btn-sm mb-2">Set</button>
+        </.form>
+      </details>
     </section>
     """
   end
